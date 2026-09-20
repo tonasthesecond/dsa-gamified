@@ -8,6 +8,9 @@ final class Levels {
         if ("smoke".equals(id)) {
             return new SmokeLevel();
         }
+        if ("demo".equals(id)) {
+            return new DemoLevel();
+        }
         return null;
     }
 }

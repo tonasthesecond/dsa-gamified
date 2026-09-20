@@ -16,6 +16,13 @@ public class HarnessTest {
 
         check("same seed gives byte-identical output", first.equals(second));
         check("different seeds give different scenarios", !first.equals(other));
+
+        String demo = Main.run(Levels.get("demo"), 3L);
+        String demoAgain = Main.run(Levels.get("demo"), 3L);
+        String demoOther = Main.run(Levels.get("demo"), 4L);
+
+        check("demo: same seed gives byte-identical output", demo.equals(demoAgain));
+        check("demo: different seeds give different scenarios", !demo.equals(demoOther));
         System.out.println("harness tests passed");
     }
 

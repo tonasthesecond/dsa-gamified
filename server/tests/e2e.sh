@@ -105,6 +105,23 @@ expect "fake marker: real result wins" "$(get "$TMP/fake_marker.json" result.pas
 expect_contains "fake marker: console has the printed text" \
     "$(get "$TMP/fake_marker.json" console)" "thinking about my move"
 
+post demo_win "level=demo&student=alice"
+expect "demo, winning party: status" "$(get "$TMP/demo_win.json" status)" "ok"
+expect "demo, winning party: passed" "$(get "$TMP/demo_win.json" result.passed)" "True"
+
+post demo_lose "level=demo&student=alice"
+expect "demo, losing party: status" "$(get "$TMP/demo_lose.json" status)" "ok"
+expect "demo, losing party: passed" "$(get "$TMP/demo_lose.json" result.passed)" "False"
+expect "demo, losing party: reason" "$(get "$TMP/demo_lose.json" result.scenarios.0.reason)" "Party defeated"
+
+post demo_invalid "level=demo&student=alice"
+expect "invalid move: status" "$(get "$TMP/demo_invalid.json" status)" "ok"
+expect "invalid move: passed" "$(get "$TMP/demo_invalid.json" result.passed)" "False"
+expect_contains "invalid move: error names the hero" \
+    "$(get "$TMP/demo_invalid.json" result.scenarios.0.error)" "Knight"
+expect_contains "invalid move: error names the move" \
+    "$(get "$TMP/demo_invalid.json" result.scenarios.0.error)" "heal"
+
 post attack "level=Bad%20Level!"
 expect "invalid level id: status" "$(get "$TMP/attack.json" status)" "bad_request"
 
