@@ -1,4 +1,4 @@
-import dsagame.api.Action;
+import dsagame.api.TargetKind;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -20,17 +20,17 @@ class EventLog {
         finish(sb);
     }
 
-    void intent(int turn, Combatant unit, Action action) {
+    void intent(int turn, Combatant unit, Intent intent) {
         StringBuilder sb = start(turn, "intent");
         sb.append(",\"unit\":").append(Json.quote(unit.id));
-        appendAction(sb, action);
+        appendMove(sb, intent.move, intent.target);
         finish(sb);
     }
 
-    void action(int turn, Combatant unit, Action action) {
+    void action(int turn, Combatant unit, Move move, Combatant target) {
         StringBuilder sb = start(turn, "action");
         sb.append(",\"unit\":").append(Json.quote(unit.id));
-        appendAction(sb, action);
+        appendMove(sb, move, target);
         finish(sb);
     }
 
@@ -45,6 +45,15 @@ class EventLog {
     /** hp is the target's hp after the damage. */
     void damage(int turn, Combatant unit, int amount) {
         StringBuilder sb = start(turn, "damage");
+        sb.append(",\"unit\":").append(Json.quote(unit.id));
+        sb.append(",\"amount\":").append(amount);
+        sb.append(",\"hp\":").append(unit.hp);
+        finish(sb);
+    }
+
+    /** hp is the target's hp after the healing; amount is what it actually got. */
+    void heal(int turn, Combatant unit, int amount) {
+        StringBuilder sb = start(turn, "heal");
         sb.append(",\"unit\":").append(Json.quote(unit.id));
         sb.append(",\"amount\":").append(amount);
         sb.append(",\"hp\":").append(unit.hp);
@@ -89,11 +98,11 @@ class EventLog {
         events.add(sb.toString());
     }
 
-    private void appendAction(StringBuilder sb, Action action) {
-        boolean attack = action.getType() == Action.Type.ATTACK;
-        sb.append(",\"action\":").append(Json.quote(attack ? "attack" : "pass"));
-        if (action.getTargetId() != null) {
-            sb.append(",\"target\":").append(Json.quote(action.getTargetId()));
+    /** The action field is the move's id. A move used on its own user needs no target. */
+    private void appendMove(StringBuilder sb, Move move, Combatant target) {
+        sb.append(",\"action\":").append(Json.quote(move.id));
+        if (move.targetKind != TargetKind.SELF) {
+            sb.append(",\"target\":").append(Json.quote(target.id));
         }
     }
 }

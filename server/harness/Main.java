@@ -52,7 +52,7 @@ public class Main {
     private static Scenario runScenario(Level level, long scenarioSeed) {
         EventLog log = new EventLog();
         List<Combatant> units = level.setup(scenarioSeed);
-        Battle battle = new Battle(units, new Random(scenarioSeed));
+        Battle battle = new Battle(units, new Random(scenarioSeed), log);
         for (int i = 0; i < units.size(); i++) {
             log.spawn(units.get(i));
         }
@@ -75,78 +75,72 @@ public class Main {
                 log.intent(turn, enemy, enemy.intent);
             }
 
-            // 2. The student decides.
-            Action action;
-            try {
-                action = strategy.decide(battle.snapshot());
-            } catch (Throwable t) {
-                return fail(log, turn, describe("Your decide()", t));
-            }
-            if (action == null) {
-                return fail(log, turn, "Your decide() returned null. "
-                        + "Return Action.pass() if you want to do nothing.");
-            }
-
-            // 3. Resolve it.
-            log.action(turn, battle.hero, action);
-            if (action.getType() == Action.Type.ATTACK) {
-                Combatant target = battle.find(action.getTargetId());
-                if (target == null) {
-                    return fail(log, turn, "Your decide() attacked \"" + action.getTargetId()
-                            + "\", which is not in this battle.");
-                }
-                if (!target.isAlive()) {
-                    return fail(log, turn, "Your decide() attacked " + target.name
-                            + ", which is already dead.");
-                }
-                String reason = level.blockReason(target, battle);
-                if (reason != null) {
-                    log.blocked(turn, target, reason);
-                } else {
-                    damage(log, turn, target, battle.hero.attack);
-                }
-            }
-            // Nothing stops a submission from attacking itself.
-            if (!battle.hero.isAlive()) {
-                return end(log, turn, false, "Hero defeated");
-            }
-
-            // 4. Win check.
-            if (battle.livingEnemies().isEmpty()) {
-                return end(log, turn, true, "All enemies defeated");
-            }
-
-            // 5. The enemies carry out what they telegraphed.
-            for (int i = 0; i < enemies.size(); i++) {
-                Combatant enemy = enemies.get(i);
-                if (!enemy.isAlive()) {
+            // 2. Everyone acts in turn order. The student decides for each hero in
+            //    turn, seeing what the heroes before it already did; an enemy
+            //    carries out what it telegraphed.
+            List<Combatant> order = battle.turnOrder();
+            for (int i = 0; i < order.size(); i++) {
+                Combatant actor = order.get(i);
+                if (!actor.isAlive()) {
                     continue;
                 }
-                Action intent = enemy.intent;
-                log.action(turn, enemy, intent);
-                if (intent.getType() == Action.Type.ATTACK) {
-                    Combatant target = battle.find(intent.getTargetId());
-                    if (target != null && target.isAlive()) {
-                        damage(log, turn, target, enemy.attack);
+
+                String moveId;
+                String targetId;
+                if (actor.enemy) {
+                    moveId = actor.intent.move.id;
+                    targetId = actor.intent.target.id;
+                } else {
+                    Action action;
+                    try {
+                        action = strategy.decide(battle.snapshot(actor));
+                    } catch (Throwable t) {
+                        return fail(log, turn, describe("Your decide() for " + actor.name, t));
                     }
+                    if (action == null) {
+                        return fail(log, turn, "Your decide() returned null for " + actor.name
+                                + ". Return Action.pass() if you want to do nothing.");
+                    }
+                    moveId = action.getMoveId();
+                    targetId = action.getTargetId();
                 }
-                if (!battle.hero.isAlive()) {
-                    return end(log, turn, false, "Hero defeated");
+
+                String problem = battle.useError(actor, moveId, targetId);
+                if (problem != null) {
+                    if (!actor.enemy) {
+                        return fail(log, turn, problem);
+                    }
+                    // An enemy's telegraphed move turned out to be illegal,
+                    // usually because its target died first. It still tried.
+                    log.action(turn, actor, actor.intent.move, actor.intent.target);
+                    continue;
+                }
+                Move move = actor.findMove(moveId);
+                Combatant target = battle.resolveTarget(actor, targetId);
+
+                // 3. Resolve it, unless the level or the move itself says no.
+                log.action(turn, actor, move, target);
+                String blocked = level.blockReason(target, battle);
+                if (blocked == null) {
+                    blocked = move.blockReason(battle, actor, target);
+                }
+                if (blocked != null) {
+                    log.blocked(turn, target, blocked);
+                } else {
+                    move.resolve(battle, actor, target);
+                }
+
+                // 4. Win and loss checks. Nothing stops a submission from
+                //    attacking its own party, so both sides are checked.
+                if (battle.livingEnemies().isEmpty()) {
+                    return end(log, turn, true, "All enemies defeated");
+                }
+                if (battle.heroes().isEmpty()) {
+                    return end(log, turn, false, "Party defeated");
                 }
             }
         }
         return end(log, level.maxTurns(), false, "Turn limit reached");
-    }
-
-    private static void damage(EventLog log, int turn, Combatant target, int amount) {
-        target.hp -= amount;
-        if (target.hp < 0) {
-            target.hp = 0;
-        }
-        log.damage(turn, target, amount);
-        if (!target.isAlive()) {
-            log.death(turn, target);
-        }
     }
 
     private static String describe(String what, Throwable t) {

@@ -1,4 +1,3 @@
-import dsagame.api.Action;
 import java.util.List;
 
 /**
@@ -11,7 +10,7 @@ import java.util.List;
 abstract class Level {
     abstract String id();
 
-    /** Hero first, then the enemies. Must be deterministic for a given seed. */
+    /** The party first, then the enemies. Must be deterministic for a given seed. */
     abstract List<Combatant> setup(long seed);
 
     int scenarioCount() {
@@ -22,13 +21,17 @@ abstract class Level {
         return 20;
     }
 
-    /** What this enemy telegraphs for the coming turn. Default: attack the hero. */
-    Action chooseIntent(Combatant enemy, Battle battle) {
-        return Action.attack(battle.hero.snapshot());
+    /**
+     * What this enemy telegraphs for the coming turn. Default: its first move on
+     * the first living hero. The move and target must be legal for the enemy.
+     */
+    Intent chooseIntent(Combatant enemy, Battle battle) {
+        return new Intent(enemy.moves.get(0), battle.firstLivingHero());
     }
 
     /**
-     * Whether the student's attack on this target bounces.
+     * Whether any move aimed at this target bounces, whoever is using it.
+     * A move can also refuse on its own through {@link Move#blockReason}.
      *
      * @return a reason shown to the player, or null if the hit lands
      */
