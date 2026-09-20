@@ -18,4 +18,8 @@ final class Moves {
     static Move heal() {
         return new HealMove("heal", "Heal", 8);
     }
+
+    static Move drain() {
+        return new DrainMove("drain", "Drain", 1);
+    }
 }

@@ -19,9 +19,10 @@ class DemoLevel extends Level {
         List<Combatant> units = new ArrayList<Combatant>();
         units.add(Heroes.knight("knight"));
         units.add(Heroes.cleric("cleric"));
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 2; i++) {
             units.add(Monsters.goblin("e" + (i + 1), 12 + random.nextInt(5)));
         }
+        units.add(Monsters.wraith("e3", 10 + random.nextInt(5)));
         return units;
     }
 }
