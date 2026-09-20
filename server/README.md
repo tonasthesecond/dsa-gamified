@@ -1,7 +1,8 @@
 # DSA Game server
 
 Compiles a student's `Submission.java`, runs it through a turn-based battle, and
-returns the battle as a JSON event log. See `docs/protocol.md` for the contract.
+returns the battle as a JSON event log. See `docs/protocol.md` for the contract
+with the client, and `docs/adding-moves.md` for adding game content.
 
 Needs a JDK 17+ and `node` on the PATH.
 
