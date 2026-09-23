@@ -121,11 +121,36 @@ class Battle {
         return new GameState(turn, selfUnit, allies, enemies);
     }
 
-    /** Hurts a combatant and logs it. One of the two primitives moves are built from. */
-    void dealDamage(Combatant target, int amount) {
+    /**
+     * Carries out a move {@link #useError} has already allowed: its effects in
+     * order, sharing one fresh {@link MoveState}, until one of them halts it.
+     * The one place a move is resolved.
+     *
+     * @param blockedBy why the level says every move bounces off this target,
+     *     or null if it does not
+     */
+    void use(Move move, Combatant user, Combatant target, String blockedBy) {
+        if (blockedBy != null) {
+            block(target, blockedBy);
+            return;
+        }
+        MoveState state = new MoveState();
+        for (int i = 0; i < move.effects.size() && !state.halted(); i++) {
+            move.effects.get(i).apply(this, user, target, state);
+        }
+    }
+
+    /**
+     * Hurts a combatant and logs it. One of the primitives effects are built from.
+     *
+     * @return the health it actually took off, less than amount if the target
+     *     had less left
+     */
+    int dealDamage(Combatant target, int amount) {
         if (amount < 0) {
             amount = 0;
         }
+        int before = target.hp;
         target.hp -= amount;
         if (target.hp < 0) {
             target.hp = 0;
@@ -134,16 +159,27 @@ class Battle {
         if (!target.isAlive()) {
             log.death(turn, target);
         }
+        return before - target.hp;
     }
 
-    /** Heals a combatant, never past its maximum, and logs how much it got. */
-    void heal(Combatant target, int amount) {
+    /**
+     * Heals a combatant, never past its maximum, and logs how much it got.
+     *
+     * @return how much it got
+     */
+    int heal(Combatant target, int amount) {
         if (amount < 0) {
             amount = 0;
         }
         int healed = Math.min(amount, target.maxHp - target.hp);
         target.hp += healed;
         log.heal(turn, target, healed);
+        return healed;
+    }
+
+    /** Logs that a move had no effect on this target, and why. */
+    void block(Combatant target, String reason) {
+        log.blocked(turn, target, reason);
     }
 
     private List<Combatant> living(boolean enemy) {

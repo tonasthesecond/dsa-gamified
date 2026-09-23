@@ -31,7 +31,7 @@ abstract class Level {
 
     /**
      * Whether any move aimed at this target bounces, whoever is using it.
-     * A move can also refuse on its own through {@link Move#blockReason}.
+     * A move can also refuse on its own with a {@link BlockEffect}.
      *
      * @return a reason shown to the player, or null if the hit lands
      */

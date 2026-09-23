@@ -120,15 +120,7 @@ public class Main {
 
                 // 3. Resolve it, unless the level or the move itself says no.
                 log.action(turn, actor, move, target);
-                String blocked = level.blockReason(target, battle);
-                if (blocked == null) {
-                    blocked = move.blockReason(battle, actor, target);
-                }
-                if (blocked != null) {
-                    log.blocked(turn, target, blocked);
-                } else {
-                    move.resolve(battle, actor, target);
-                }
+                battle.use(move, actor, target, level.blockReason(target, battle));
 
                 // 4. Win and loss checks. Nothing stops a submission from
                 //    attacking its own party, so both sides are checked.

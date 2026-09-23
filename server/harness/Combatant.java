@@ -32,7 +32,7 @@ class Combatant {
             this.moves.add(moves[i]);
         }
         // Anyone can always do nothing, so nothing else has to special-case it.
-        this.moves.add(new PassMove());
+        this.moves.add(Moves.pass());
     }
 
     boolean isAlive() {
