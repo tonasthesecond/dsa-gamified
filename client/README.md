@@ -13,7 +13,7 @@ visuals are just `print` calls.
 3. The editor starts with a sample submission. Press **Submit**. The spinner
    shows while the server compiles, then Scenario, Step, Skip to end and Reset
    appear. Each event prints to the Godot output panel, for example
-   `damaged: { "turn": 1, "type": "damage", "unit": "e1", "amount": 10, "hp": 6 }`.
+   `damage: { "turn": 1, "type": "damage", "unit": "e1", "amount": 10, "hp": 6, "move": "smite" }`.
 4. Delete a `;` and submit again. The error label shows the javac message, and
    the editor selects the line it points at.
 
@@ -77,19 +77,28 @@ error.
 ### Events
 
 Every event has `turn` (0 for spawns) and `type`. `unit` and `target` are unit
-ids, matching the `unit` of a `spawn`.
+ids, matching the `unit` of a `spawn`. `move` is the id of the move an event
+came from.
 
 | `type` | extra fields | Simulation signal |
 |---|---|---|
 | `spawn` | `unit`, `name`, `team` (`hero`/`enemy`), `hp`, `maxHp` | `spawned(event)` |
-| `intent` | `unit`, `action` (move id), `target?` | `intent(event)` |
-| `action` | `unit`, `action` (move id), `target?` | `action(event)` |
-| `blocked` | `unit` (the target), `reason` | `blocked(event)` |
-| `damage` | `unit`, `amount`, `hp` (after) | `damaged(event)` |
-| `heal` | `unit`, `amount`, `hp` (after) | `healed(event)` |
+| `intent` | `unit`, `action` (move id), `target?`, `move` (same as `action`) | `intent(event)` |
+| `action` | `unit`, `action` (move id), `target?`, `move` (same as `action`) | `action(event)` |
+| `blocked` | `unit` (the target), `reason`, `move` | `effect_applied(event)` |
+| `damage` | `unit`, `amount`, `hp` (after), `move` | `effect_applied(event)` |
+| `heal` | `unit`, `amount`, `hp` (after), `move` | `effect_applied(event)` |
 | `death` | `unit` | `died(event)` |
 | `end` | `won`, `reason` | `ended(won, reason)` |
-| anything else | | `unknown_event(event)`, and replay carries on |
+| any other type, with `move` | whatever the effect logs | `effect_applied(event)`, `hp` applied if present |
+| any other type, without `move` | | `unknown_event(event)`, and replay carries on |
+
+The split is structure versus move output. `spawn`, `intent`, `action`,
+`death` and `end` are the shape of a battle and each has its own signal.
+Everything a move *does* carries `move` and goes through the one
+`effect_applied` signal, whatever its `type`. So a new effect on the server
+never needs a new signal. `unknown_event` only fires for a new structural
+event with no `move`.
 
 Simulation also emits `battle_loaded(scenario_count)`,
 `scenario_reset(index)`, and `submission_failed(message, line)` when
@@ -111,13 +120,13 @@ first of three:
  "result": {"levelId": "smoke", "passed": true, "scenarios": [
   {"seed": 1042256885, "won": true, "reason": "All enemies defeated", "error": "",
    "events": [
-    {"turn": 0, "type": "spawn", "unit": "hero", "name": "Hero", "team": "hero", "hp": 30, "maxHp": 30},
-    {"turn": 0, "type": "spawn", "unit": "e1", "name": "Slime", "team": "enemy", "hp": 6, "maxHp": 6},
-    {"turn": 1, "type": "intent", "unit": "e1", "action": "attack", "target": "hero"},
-    {"turn": 1, "type": "action", "unit": "hero", "action": "attack", "target": "e1"},
-    {"turn": 1, "type": "damage", "unit": "e1", "amount": 6, "hp": 0},
-    {"turn": 1, "type": "death", "unit": "e1"},
-    {"turn": 1, "type": "end", "won": true, "reason": "All enemies defeated"}]}]}}
+	{"turn": 0, "type": "spawn", "unit": "hero", "name": "Hero", "team": "hero", "hp": 30, "maxHp": 30},
+	{"turn": 0, "type": "spawn", "unit": "e1", "name": "Slime", "team": "enemy", "hp": 6, "maxHp": 6},
+	{"turn": 1, "type": "intent", "unit": "e1", "action": "attack", "target": "hero", "move": "attack"},
+	{"turn": 1, "type": "action", "unit": "hero", "action": "attack", "target": "e1", "move": "attack"},
+	{"turn": 1, "type": "damage", "unit": "e1", "amount": 6, "hp": 0, "move": "attack"},
+	{"turn": 1, "type": "death", "unit": "e1"},
+	{"turn": 1, "type": "end", "won": true, "reason": "All enemies defeated"}]}]}}
 ```
 
 `dev/fixtures/demo_win.json` is a longer one, with a party, `heal` and `drain`.
@@ -140,7 +149,8 @@ server change:
 
 | server change | files to change in Godot |
 |---|---|
-| **new event type** | `sim/simulation.gd`: add a `signal`, add a `match` branch in `step()` that updates state (if it affects HP or alive) and emits it. `presentation/presentation.gd`: connect the new signal in `listen_to()`. Until you do, it arrives as `unknown_event` and nothing breaks. |
+| **new effect, or a new event type that carries `move`** | `presentation/presentation.gd`: one entry in `type_hooks`, or in `move_hooks` for one move. Nothing in `sim/simulation.gd`: it already arrives as `effect_applied`, and `hp` is applied if the event has it. If it ever needs a change there, that is a bug. |
+| **new structural event type, without `move`** | `sim/simulation.gd`: add a `signal` and a `match` branch in `step()`. `presentation/presentation.gd`: connect it in `listen_to()`. Until you do, it arrives as `unknown_event` and nothing breaks. |
 | **new field on an existing event** | Nothing, if it is just for display: it is already in the `event` Dictionary Presentation receives. If it changes unit state, `sim/simulation.gd` (`step()`, plus the state dict in the `spawn` branch). |
 | **new field on the envelope or a scenario** | `sim/simulation.gd`: expose it next to `current_scenario()`. If the UI shows it, `ui/flow.gd` plus one connection in `battle_controller.gd`. |
 | **new status** | Nothing: any status other than `ok` already becomes `submission_failed`. |
@@ -185,8 +195,9 @@ your own rows:
   `Goblin`s in `demo`. The protocol has no separate unit-kind id, so `name`
   is the only one available. If display names and kinds ever need to differ,
   the fix is a new optional `kind` field on `spawn`, server-side.
-- **Moves** are keyed by move id, the `action` field of `action`/`intent`
-  events: `attack`, `pass`, `heal`, `smite`, `drain`, ...
+- **Moves** are keyed by move id, the `move` field every move-related event
+  carries: `attack`, `pass`, `heal`, `smite`, `drain`, ... A row is
+  `MoveData`: `display_name`, `description`, `animation_key`.
 
 `get_unit` and `get_move` return `null` for a missing row, and Presentation
 prints `(no Content row for ...)` instead of failing.

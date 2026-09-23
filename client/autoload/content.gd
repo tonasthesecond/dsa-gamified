@@ -18,6 +18,7 @@ func _ready() -> void:
 	var placeholder_move := MoveData.new()
 	placeholder_move.display_name = "PLACEHOLDER Attack"
 	placeholder_move.description = "Every combatant has it."
+	placeholder_move.animation_key = &"placeholder_attack"
 	register_move("attack", placeholder_move)
 	# --- end PLACEHOLDER ---
 

@@ -35,28 +35,31 @@ class EventLog {
     }
 
     /** The target the attack bounced off, and why. */
-    void blocked(int turn, Combatant target, String reason) {
+    void blocked(int turn, Combatant target, String reason, Move source) {
         StringBuilder sb = start(turn, "blocked");
         sb.append(",\"unit\":").append(Json.quote(target.id));
         sb.append(",\"reason\":").append(Json.quote(reason));
+        appendSource(sb, source);
         finish(sb);
     }
 
     /** hp is the target's hp after the damage. */
-    void damage(int turn, Combatant unit, int amount) {
+    void damage(int turn, Combatant unit, int amount, Move source) {
         StringBuilder sb = start(turn, "damage");
         sb.append(",\"unit\":").append(Json.quote(unit.id));
         sb.append(",\"amount\":").append(amount);
         sb.append(",\"hp\":").append(unit.hp);
+        appendSource(sb, source);
         finish(sb);
     }
 
     /** hp is the target's hp after the healing; amount is what it actually got. */
-    void heal(int turn, Combatant unit, int amount) {
+    void heal(int turn, Combatant unit, int amount, Move source) {
         StringBuilder sb = start(turn, "heal");
         sb.append(",\"unit\":").append(Json.quote(unit.id));
         sb.append(",\"amount\":").append(amount);
         sb.append(",\"hp\":").append(unit.hp);
+        appendSource(sb, source);
         finish(sb);
     }
 
@@ -98,11 +101,22 @@ class EventLog {
         events.add(sb.toString());
     }
 
-    /** The action field is the move's id. A move used on its own user needs no target. */
+    /**
+     * The action field is the move's id. A move used on its own user needs no target.
+     * move repeats action under the name every move-related event uses.
+     */
     private void appendMove(StringBuilder sb, Move move, Combatant target) {
         sb.append(",\"action\":").append(Json.quote(move.id));
         if (move.targetKind != TargetKind.SELF) {
             sb.append(",\"target\":").append(Json.quote(target.id));
+        }
+        appendSource(sb, move);
+    }
+
+    /** Which move an event came from. Left out when it came from no move. */
+    private void appendSource(StringBuilder sb, Move source) {
+        if (source != null) {
+            sb.append(",\"move\":").append(Json.quote(source.id));
         }
     }
 }

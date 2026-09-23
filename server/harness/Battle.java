@@ -13,6 +13,8 @@ class Battle {
     final Random random;
     final EventLog log;
     int turn;
+    /** The move {@link #use} is resolving, so the primitives can say where an event came from. */
+    private Move resolving;
 
     Battle(List<Combatant> combatants, Random random, EventLog log) {
         this.combatants = combatants;
@@ -130,13 +132,18 @@ class Battle {
      *     or null if it does not
      */
     void use(Move move, Combatant user, Combatant target, String blockedBy) {
-        if (blockedBy != null) {
-            block(target, blockedBy);
-            return;
-        }
-        MoveState state = new MoveState();
-        for (int i = 0; i < move.effects.size() && !state.halted(); i++) {
-            move.effects.get(i).apply(this, user, target, state);
+        resolving = move;
+        try {
+            if (blockedBy != null) {
+                block(target, blockedBy);
+                return;
+            }
+            MoveState state = new MoveState();
+            for (int i = 0; i < move.effects.size() && !state.halted(); i++) {
+                move.effects.get(i).apply(this, user, target, state);
+            }
+        } finally {
+            resolving = null;
         }
     }
 
@@ -155,7 +162,7 @@ class Battle {
         if (target.hp < 0) {
             target.hp = 0;
         }
-        log.damage(turn, target, amount);
+        log.damage(turn, target, amount, resolving);
         if (!target.isAlive()) {
             log.death(turn, target);
         }
@@ -173,13 +180,13 @@ class Battle {
         }
         int healed = Math.min(amount, target.maxHp - target.hp);
         target.hp += healed;
-        log.heal(turn, target, healed);
+        log.heal(turn, target, healed, resolving);
         return healed;
     }
 
     /** Logs that a move had no effect on this target, and why. */
     void block(Combatant target, String reason) {
-        log.blocked(turn, target, reason);
+        log.blocked(turn, target, reason, resolving);
     }
 
     private List<Combatant> living(boolean enemy) {

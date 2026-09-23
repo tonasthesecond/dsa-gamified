@@ -5,3 +5,5 @@ extends Resource
 
 @export var display_name: String = ""
 @export_multiline var description: String = ""
+## Which animation Presentation plays for this move; free-form until there is art.
+@export var animation_key: StringName = &""

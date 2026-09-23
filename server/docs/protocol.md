@@ -86,11 +86,11 @@ Every event has `turn` and `type`. Spawns are turn 0; the first turn is 1.
 | type | extra fields | notes |
 |---|---|---|
 | `spawn` | `unit`, `name`, `team` (`hero` or `enemy`), `hp`, `maxHp` | turn 0, one per unit |
-| `intent` | `unit`, `action`, `target?` | telegraphed before the party acts |
-| `action` | `unit`, `action` (a move id), `target?` | |
-| `blocked` | `unit` (the target), `reason` | the action had no effect |
-| `damage` | `unit`, `amount`, `hp` | `hp` is after the damage |
-| `heal` | `unit`, `amount`, `hp` | `hp` is after the healing; `amount` is what it actually got, so it is 0 on a unit already at full health |
+| `intent` | `unit`, `action`, `target?`, `move` | telegraphed before the party acts |
+| `action` | `unit`, `action` (a move id), `target?`, `move` | |
+| `blocked` | `unit` (the target), `reason`, `move` | the action had no effect |
+| `damage` | `unit`, `amount`, `hp`, `move` | `hp` is after the damage |
+| `heal` | `unit`, `amount`, `hp`, `move` | `hp` is after the healing; `amount` is what it actually got, so it is 0 on a unit already at full health |
 | `death` | `unit` | |
 | `end` | `won`, `reason` | the last event of a scenario |
 
@@ -100,6 +100,14 @@ The `action` field on `action` and `intent` is the id of the move being used.
 `attack` and `pass` are the two every combatant has, so they read exactly as
 they always did; a level's own moves use their own ids, such as `heal` or
 `drain`. A move aimed at whoever is using it, like `pass`, has no `target`.
+
+`move` is the id of the move an event came from. On `intent` and `action` it
+is the same as `action`. On `blocked`, `damage` and `heal` it names the move
+that caused them, so a `drain` shows up as an `action`, then a `damage` and a
+`heal` that both carry `"move":"drain"`. `spawn`, `death` and `end` never have
+it. A move is a list of effects on the server, but the log never says which
+effect did what: an effect's output is just the `damage`, `heal` or `blocked`
+events it caused.
 
 ### Compatibility notes
 
@@ -111,6 +119,8 @@ Everything above is a superset of the first version of this protocol:
   `pass`. It is now any move id; those two keep their spelling and meaning.
 - There can now be more than one unit with `team: hero`, and the party acts in
   spawn order within a turn.
+- `move` is a new field on `intent`, `action`, `blocked`, `damage` and `heal`.
+  Everything else in those events is unchanged, and `action` keeps its value.
 
 No field has been renamed or removed.
 

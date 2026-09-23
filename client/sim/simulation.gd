@@ -15,17 +15,21 @@ signal submission_failed(message: String, line: int)
 ## The cursor went back to 0 on scenario `index`; listeners clear their state.
 signal scenario_reset(index: int)
 
-# One signal per event `type` in protocol.md, each carrying the raw event.
+# Battle structure: one signal per event `type`, each carrying the raw event.
+# `intent` and `action` events carry `move`, the id of the move coming or used.
 signal spawned(event: Dictionary)  # spawn
 signal intent(event: Dictionary)  # intent
 signal action(event: Dictionary)  # action
-signal blocked(event: Dictionary)  # blocked
-signal damaged(event: Dictionary)  # damage
-signal healed(event: Dictionary)  # heal
 signal died(event: Dictionary)  # death
 signal ended(won: bool, reason: String)  # end
-## An event type this client does not know yet. The server may add types;
-## replay carries on past it.
+## What a move did: every event that carries `move` and is not an intent or an
+## action, such as `damage`, `heal` or `blocked`. Listeners dispatch on
+## `event.type` or `event.move`. A new effect on the server arrives here with
+## no change to this file; if one ever needs a change here, that is a bug.
+signal effect_applied(event: Dictionary)
+## An event with no `move` whose `type` this file does not know. That is a new
+## structural primitive on the server, never a new effect: anything a move
+## causes carries `move` and goes to effect_applied. Replay carries on past it.
 signal unknown_event(event: Dictionary)
 
 const _COMPILER_LINE := "Submission\\.java:(\\d+):"
@@ -85,19 +89,16 @@ func step() -> bool:
 			intent.emit(event)
 		"action":
 			action.emit(event)
-		"blocked":
-			blocked.emit(event)
-		"damage":
-			_units[event.unit].hp = event.hp
-			damaged.emit(event)
-		"heal":
-			_units[event.unit].hp = event.hp
-			healed.emit(event)
 		"death":
 			_units[event.unit].alive = false
 			died.emit(event)
 		"end":
 			ended.emit(event.won, event.reason)
+		_ when event.has("move"):
+			# Effect output. The only state an effect can change is hp.
+			if event.has("hp"):
+				_units[event.unit].hp = event.hp
+			effect_applied.emit(event)
 		_:
 			unknown_event.emit(event)
 	return true
