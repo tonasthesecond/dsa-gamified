@@ -16,20 +16,28 @@ var move_hooks: Dictionary[String, Callable] = {}
 
 
 func listen_to(sim: Simulation) -> void:
-	sim.battle_loaded.connect(func(count: int) -> void: print("battle_loaded: %d scenarios" % count))
-	sim.submission_failed.connect(func(message: String, line: int) -> void:
-		print("submission_failed: line %d: %s" % [line, message]))
+	sim.battle_loaded.connect(
+		func(count: int) -> void: print("battle_loaded: %d scenarios" % count)
+	)
+	sim.submission_failed.connect(
+		func(message: String, line: int) -> void:
+			print("submission_failed: line %d: %s" % [line, message])
+	)
 	sim.scenario_reset.connect(func(index: int) -> void: print("scenario_reset: %d" % index))
-	sim.spawned.connect(func(event: Dictionary) -> void:
-		print("spawned: %s %s" % [event, _unit_label(event.name)]))
-	sim.intent.connect(func(event: Dictionary) -> void:
-		print("intent: %s %s" % [event, _move_label(event.action)]))
-	sim.action.connect(func(event: Dictionary) -> void:
-		print("action: %s %s" % [event, _move_label(event.action)]))
+	sim.spawned.connect(
+		func(event: Dictionary) -> void: print("spawned: %s %s" % [event, _unit_label(event.name)])
+	)
+	sim.intent.connect(
+		func(event: Dictionary) -> void: print("intent: %s %s" % [event, _move_label(event.action)])
+	)
+	sim.action.connect(
+		func(event: Dictionary) -> void: print("action: %s %s" % [event, _move_label(event.action)])
+	)
 	sim.effect_applied.connect(_on_effect_applied)
 	sim.died.connect(func(event: Dictionary) -> void: print("died: %s" % event))
-	sim.ended.connect(func(won: bool, reason: String) -> void:
-		print("ended: won=%s reason=%s" % [won, reason]))
+	sim.ended.connect(
+		func(won: bool, reason: String) -> void: print("ended: won=%s reason=%s" % [won, reason])
+	)
 	sim.unknown_event.connect(func(event: Dictionary) -> void: print("unknown_event: %s" % event))
 
 

@@ -1,8 +1,8 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene format=3 uid="uid://tkt2547dbj1f"]
 
-[ext_resource type="Script" path="res://ui/flow.gd" id="1"]
+[ext_resource type="Script" uid="uid://bqphg6c71slqh" path="res://ui/flow.gd" id="1"]
 
-[node name="Flow" type="Control"]
+[node name="Flow" type="Control" unique_id=1793647429]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -11,7 +11,7 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1")
 
-[node name="VBox" type="VBoxContainer" parent="."]
+[node name="VBox" type="VBoxContainer" parent="." unique_id=2102288475]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -19,7 +19,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="Editor" type="TextEdit" parent="VBox"]
+[node name="Editor" type="TextEdit" parent="VBox" unique_id=330384199]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
@@ -33,47 +33,49 @@ public class Submission implements Strategy {
 }
 "
 
-[node name="Bar" type="HBoxContainer" parent="VBox"]
+[node name="Bar" type="HBoxContainer" parent="VBox" unique_id=938411720]
 layout_mode = 2
 
-[node name="Submit" type="Button" parent="VBox/Bar"]
+[node name="Submit" type="Button" parent="VBox/Bar" unique_id=773166711]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Submit"
 
-[node name="Spinner" type="ProgressBar" parent="VBox/Bar"]
+[node name="Spinner" type="ProgressBar" parent="VBox/Bar" unique_id=1017669930]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(120, 0)
 layout_mode = 2
 size_flags_vertical = 4
 show_percentage = false
 indeterminate = true
+editor_preview_indeterminate = false
 
-[node name="Replay" type="HBoxContainer" parent="VBox/Bar"]
+[node name="Replay" type="HBoxContainer" parent="VBox/Bar" unique_id=1054161544]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="Scenario" type="OptionButton" parent="VBox/Bar/Replay"]
+[node name="Scenario" type="OptionButton" parent="VBox/Bar/Replay" unique_id=577261192]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="Step" type="Button" parent="VBox/Bar/Replay"]
+[node name="Step" type="Button" parent="VBox/Bar/Replay" unique_id=1664100448]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Step"
 
-[node name="Skip" type="Button" parent="VBox/Bar/Replay"]
+[node name="Skip" type="Button" parent="VBox/Bar/Replay" unique_id=1508836031]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Skip to end"
 
-[node name="Reset" type="Button" parent="VBox/Bar/Replay"]
+[node name="Reset" type="Button" parent="VBox/Bar/Replay" unique_id=1808470799]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Reset"
 
-[node name="Error" type="Label" parent="VBox"]
+[node name="Error" type="Label" parent="VBox" unique_id=57598979]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(13, 13)
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.4, 0.4, 1)
 autowrap_mode = 3
