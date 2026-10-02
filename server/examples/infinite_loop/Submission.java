@@ -1,8 +1,9 @@
-import dsagame.api.*;
+import dsagame.api.Strategy;
+import java.util.Map;
 
-/** Hangs, so the run has to be killed on the timeout. */
+/** Hangs, so the call has to be killed on the timeout. */
 public class Submission implements Strategy {
-    public Action decide(GameState state) {
+    public String decide(Map<String, Object> state) {
         while (true) {
         }
     }

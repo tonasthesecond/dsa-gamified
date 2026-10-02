@@ -15,23 +15,12 @@ import com.sun.net.httpserver.*;
 import java.io.ByteArrayOutputStream;
 
 /**
- * Two services side by side while the game moves into the Godot client.
- *
- * <p>The old one: POST /compile?level=&lt;id&gt;&amp;student=&lt;id&gt; with the
- * raw source of Submission.java as the body. Compiles it with the harness,
- * cross-compiles to JavaScript with TeaVM, runs it under node, and returns the
- * battle log. Always answers 200 with the same envelope; see docs/protocol.md.
- *
- * <p>The new one knows nothing about the game: /build compiles a submission
- * against runner/, /start begins a battle with a fresh Submission, /decide
- * hands it one state and returns its action, /close throws the build away.
- * See docs/runner.md.
+ * Runs student code for the Godot client and knows nothing about the game:
+ * /build compiles a Submission, /start makes a fresh one, /decide hands it a
+ * state and returns its command, /close throws the build away. See docs/runner.md.
  */
 public class Server {
     private static final int MAX_BODY_BYTES = 50_000;
-    private static final long MAX_OUTPUT_BYTES = 2_000_000L;
-    private static final int MAX_CONSOLE_CHARS = 4_000;
-    private static final int TIMEOUT_SECONDS = 5;
     static final int NODE_HEAP_MB = 256;
     /** Per /decide or /start call. The client picks its own with timeout_ms, up to the max. */
     private static final long DEFAULT_CALL_TIMEOUT_MS = 1_000;
@@ -39,14 +28,10 @@ public class Server {
     private static final int MAX_STATE_BYTES = 1_000_000;
     private static final Pattern TIMEOUT_MS = Pattern.compile("[0-9]{1,6}");
     private static final Builds BUILDS = new Builds();
-    private static final String MARKER = "@@DSAGAME_RESULT@@";
-    /** Interpolated into the node command line, so this check is a security boundary. */
-    private static final Pattern LEVEL_ID = Pattern.compile("[a-z0-9_]{1,40}");
     private static final Pattern PACKAGE_LINE = Pattern.compile("(?m)^\\s*package\\s");
 
     public static void main(String[] args) throws IOException {
         HttpServer server = HttpServer.create(new InetSocketAddress(8080), 0);
-        server.createContext("/compile", Server::handleCompile);
         server.createContext("/build", exchange -> respond(exchange, Server::handleBuild));
         server.createContext("/start", exchange -> respond(exchange, Server::handleStart));
         server.createContext("/decide", exchange -> respond(exchange, Server::handleDecide));
@@ -58,27 +43,11 @@ public class Server {
         System.out.println("Listening on :8080");
     }
 
-    private static void handleCompile(HttpExchange exchange) throws IOException {
-        String body;
-        try {
-            body = handle(exchange);
-        } catch (Throwable t) {
-            body = envelope("runtime_error", "Server error: " + t, "", null);
-        }
-        byte[] resp = body.getBytes(StandardCharsets.UTF_8);
-        // Scope this to the client's origin once there is somewhere to deploy to.
-        exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
-        exchange.getResponseHeaders().add("Content-Type", "application/json");
-        exchange.sendResponseHeaders(200, resp.length);
-        exchange.getResponseBody().write(resp);
-        exchange.close();
-    }
-
     private interface Handler {
         String handle(HttpExchange exchange) throws Exception;
     }
 
-    /** Same rules as /compile: always 200, always JSON, always a status. */
+    /** Always 200, always JSON, always a status. */
     private static void respond(HttpExchange exchange, Handler handler) throws IOException {
         String body;
         try {
@@ -111,11 +80,11 @@ public class Server {
         boolean kept = false;
         try {
             Files.writeString(workDir.resolve("Submission.java"), source);
-            copySources(Path.of("next", "api"), workDir);
+            copySources(Path.of("api"), workDir);
             copySources(Path.of("runner"), workDir);
             String problems = javac(workDir);
             if (problems == null) {
-                problems = teavm(workDir, "Runner");
+                problems = teavm(workDir);
             }
             if (problems != null) {
                 return reply("compile_error", problems, "\"build\":null");
@@ -217,56 +186,6 @@ public class Server {
         return sb.toString();
     }
 
-    private static String handle(HttpExchange exchange) throws Exception {
-        Map<String, String> query = parseQuery(exchange.getRequestURI().getRawQuery());
-        String level = query.get("level");
-        if (level == null || !LEVEL_ID.matcher(level).matches()) {
-            return envelope("bad_request",
-                    "level must match [a-z0-9_]{1,40}", "", null);
-        }
-        String student = query.get("student");
-        if (student == null) {
-            student = "anonymous";
-        }
-        long seed = (student + ":" + level).hashCode() & 0x7fffffffL;
-
-        byte[] raw = exchange.getRequestBody().readNBytes(MAX_BODY_BYTES + 1);
-        if (raw.length > MAX_BODY_BYTES) {
-            return envelope("bad_request",
-                    "Submission is larger than " + MAX_BODY_BYTES + " bytes", "", null);
-        }
-        String source = new String(raw, StandardCharsets.UTF_8);
-
-        // Caught here rather than by javac, where it shows up as "cannot find symbol".
-        if (PACKAGE_LINE.matcher(source).find()) {
-            return envelope("compile_error",
-                    "Remove the package line: Submission must be in the default package.",
-                    "", null);
-        }
-        return run(source, level, seed);
-    }
-
-    private static String run(String source, String level, long seed) throws Exception {
-        Path workDir = Files.createTempDirectory("submission");
-        try {
-            Files.writeString(workDir.resolve("Submission.java"), source);
-            copySources(Path.of("api"), workDir);
-            copySources(Path.of("harness"), workDir);
-
-            String javacOutput = javac(workDir);
-            if (javacOutput != null) {
-                return envelope("compile_error", javacOutput, "", null);
-            }
-            String teavmProblems = teavm(workDir, "Main");
-            if (teavmProblems != null) {
-                return envelope("compile_error", teavmProblems, "", null);
-            }
-            return node(workDir, level, seed);
-        } finally {
-            deleteTree(workDir);
-        }
-    }
-
     /** Copies every .java file under root into workDir, keeping its package directories. */
     private static void copySources(Path root, Path workDir) throws IOException {
         List<Path> sources = javaSources(root);
@@ -313,9 +232,9 @@ public class Server {
     }
 
     /** Returns TeaVM's problems on failure, or null if the build was clean. */
-    private static String teavm(Path workDir, String mainClass) throws Exception {
+    private static String teavm(Path workDir) throws Exception {
         TeaVMTool tool = new TeaVMTool();
-        tool.setMainClass(mainClass);
+        tool.setMainClass("Runner");
         tool.setTargetType(org.teavm.tooling.TeaVMTargetType.JAVASCRIPT);
         tool.setTargetFileName("classes.js");
         tool.setClassLoader(new java.net.URLClassLoader(
@@ -335,55 +254,6 @@ public class Server {
         return "TeaVM build problems:\n" + problems;
     }
 
-    private static String node(Path workDir, String level, long seed) throws Exception {
-        Path jsFile = workDir.resolve("out").resolve("classes.js");
-        Path outputFile = workDir.resolve("output.txt");
-        ProcessBuilder pb = new ProcessBuilder(
-            "node", "--max-old-space-size=256", "-e",
-            "require('" + jsFile + "').main(['" + level + "','" + seed + "'], function(err) { " +
-            "if (err) { console.error(err); process.exit(1); } });"
-        );
-        // A pipe fills at about 64 KB and blocks node, which looks exactly like a
-        // timeout. Event logs get bigger than that, so redirect to a file.
-        pb.redirectErrorStream(true);
-        pb.redirectOutput(outputFile.toFile());
-        Process proc = pb.start();
-        boolean finished = proc.waitFor(TIMEOUT_SECONDS, java.util.concurrent.TimeUnit.SECONDS);
-        if (!finished) {
-            proc.destroyForcibly();
-            return envelope("timeout",
-                    "Execution timed out (5s) — likely an infinite loop", "", null);
-        }
-        if (Files.size(outputFile) > MAX_OUTPUT_BYTES) {
-            return envelope("runtime_error",
-                    "Your code printed more than " + MAX_OUTPUT_BYTES + " bytes", "", null);
-        }
-        String output = Files.readString(outputFile, StandardCharsets.UTF_8);
-        if (proc.exitValue() != 0) {
-            return envelope("runtime_error",
-                    "node exited " + proc.exitValue() + ":\n" + output, "", null);
-        }
-
-        // The last marker line wins: the harness prints last, so a student who
-        // prints a fake marker line cannot override it.
-        String result = null;
-        StringBuilder console = new StringBuilder();
-        for (String line : output.split("\n", -1)) {
-            if (line.startsWith(MARKER)) {
-                if (result != null) {
-                    console.append(result).append('\n');
-                }
-                result = line;
-            } else {
-                console.append(line).append('\n');
-            }
-        }
-        if (result == null) {
-            return envelope("runtime_error", "No result line in output:\n" + output, "", null);
-        }
-        return envelope("ok", "", console.toString(), result.substring(MARKER.length()));
-    }
-
     private static Map<String, String> parseQuery(String rawQuery) {
         Map<String, String> params = new HashMap<>();
         if (rawQuery == null) {
@@ -398,25 +268,6 @@ public class Server {
                     URLDecoder.decode(pair.substring(eq + 1), StandardCharsets.UTF_8));
         }
         return params;
-    }
-
-    /** resultJson is raw JSON from the harness, or null. */
-    private static String envelope(String status, String message, String console, String resultJson) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("{\"status\":").append(quote(status));
-        sb.append(",\"message\":").append(quote(message));
-        sb.append(",\"console\":").append(quote(trimConsole(console)));
-        sb.append(",\"result\":").append(resultJson == null ? "null" : resultJson);
-        sb.append('}');
-        return sb.toString();
-    }
-
-    private static String trimConsole(String console) {
-        String trimmed = console.trim();
-        if (trimmed.length() <= MAX_CONSOLE_CHARS) {
-            return trimmed;
-        }
-        return trimmed.substring(0, MAX_CONSOLE_CHARS) + "\n... [output truncated]";
     }
 
     static String quote(String s) {

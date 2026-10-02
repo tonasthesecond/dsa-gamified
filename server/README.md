@@ -1,29 +1,20 @@
-# DSA Game server
+# server
 
-Compiles a student's `Submission.java`, runs it through a turn-based battle, and
-returns the battle as a JSON event log. See `docs/protocol.md` for the contract
-with the client, and `docs/adding-moves.md` for adding game content.
+Compiles a student's `Submission.java` and runs its `decide` for the Godot
+client. Knows nothing about the game. Contract: `docs/runner.md`.
 
-Needs a JDK 17+ and `node` on the PATH.
+Needs JDK 17 and `node`. Run everything from this directory.
 
 ```
-./gradlew run             # serve on :8080, from this directory
-tests/e2e.sh              # the whole test suite (starts its own server)
-tests/harness-test.sh     # just the harness determinism checks
-scripts/build-api-jar.sh  # dsagame-api.jar, for students to compile against
+./gradlew run             # serve on :8080
+tests/e2e.sh              # the test suite (starts its own server)
+scripts/build-api-jar.sh  # dsagame-api.jar, what students compile against
 ```
-
-The service reads `api/` and `harness/` from its working directory, so run it
-from here.
 
 | directory | what it is |
 |---|---|
 | `src/main/java/compileservice` | the HTTP service |
-| `api/dsagame/api` | the student-facing API; the only named package |
-| `harness` | the battle loop and the level seam; default package |
-| `starter` | the skeleton students start from |
-| `examples` | one submission per test case |
-
-The harness and `Submission` share the default package on purpose: Java cannot
-reference the default package from a named one, so a packaged harness could not
-instantiate `Submission`.
+| `runner` | runs inside TeaVM next to the student's code; flat, default package |
+| `api/dsagame/api` | `Strategy`, what students implement; the only named package |
+| `examples` | one `Submission.java` per test case |
+| `tests` | `e2e.sh` and the sample `state.json` it sends |

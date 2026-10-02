@@ -1,8 +1,9 @@
-import dsagame.api.*;
+import dsagame.api.Strategy;
+import java.util.Map;
 
 /** Missing a semicolon on the return, so javac rejects it. */
 public class Submission implements Strategy {
-    public Action decide(GameState state) {
-        return Action.pass()
+    public String decide(Map<String, Object> state) {
+        return null
     }
 }
