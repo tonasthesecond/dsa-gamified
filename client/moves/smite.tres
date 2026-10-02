@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="Move" format=3 uid="uid://c4a214itabo4t"]
+
+[ext_resource type="Script" uid="uid://bm4h2lpcd01kl" path="res://battle/effects/effect.gd" id="1_i76ke"]
+[ext_resource type="Script" uid="uid://babsy3h1rlbnm" path="res://battle/effects/damage_effect.gd" id="2_vkvq3"]
+[ext_resource type="Script" uid="uid://nf6up3ajr3lb" path="res://battle/move.gd" id="3_k2yya"]
+
+[sub_resource type="Resource" id="Resource_nyuqn"]
+script = ExtResource("2_vkvq3")
+percent = 170
+
+[resource]
+script = ExtResource("3_k2yya")
+id = "smite"
+name = "Smite"
+description = "Hit one enemy for 170% of your strength."
+effects = Array[ExtResource("1_i76ke")]([SubResource("Resource_nyuqn")])

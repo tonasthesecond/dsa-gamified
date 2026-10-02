@@ -2,104 +2,107 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-A Zachtronics-style coding game for a data structures course. Students write Java
-against a small API; the server compiles it, runs a turn-based battle with it, and
-returns the whole battle as a JSON event log for a Godot client (not in this repo)
-to replay. `server-brief.md` is the spec the server was built from.
+A Zachtronics-style coding game for a data structures course. Students write a
+Java `Submission` whose `decide(state)` picks one unit's action; a Godot game
+plays a turn-based battle with it and then replays the battle on screen.
 
-Everything lives in `server/`. Run every command from there — the service reads
-`api/` and `harness/` from its working directory.
+`DEVELOPMENT.md` is the map: architecture, every piece by name, and recipes for
+adding moves, units, levels and AIs. Read the relevant section before changing
+anything. `server/docs/runner.md` is the HTTP contract and the shape of the
+state the student sees; `server/docs/protocol.md` is the battle-log event
+vocabulary. `feasibility-report.md` is the project plan.
+
+## Architecture in one paragraph
+
+**Godot owns every rule; Java only runs student code.** `SubmitClient` POSTs the
+source to `/build` (javac + TeaVM), then runs `Battle.run()` on a worker thread.
+Each time a student unit acts, `StudentController` calls `/decide` with the
+state from `Battle.state_for`, and Java's `runner/Runner.java` hands it to the
+student's `decide` inside a node process and returns the action. `/start` makes a
+fresh `Submission` per battle; `/close` ends it. When the battle is over, the
+finished event log goes to `Simulation` (one signal per event) and
+`Presentation` (draws it). Java could host a different game without a change.
 
 ## Commands
 
+The machine has only a JRE 25. Java work needs
+`export JAVA_HOME=~/.local/jdk-17 PATH=~/.local/jdk-17/bin:$PATH` first, and
+`node` on the PATH. Godot 4.7 is `~/applications/godot/godot` (not on PATH).
+
 ```bash
+# Java, from server/ (the service reads runner/ and next/api/ from its cwd)
 ./gradlew run             # serve on :8080
-tests/e2e.sh              # whole suite: builds, starts its own server, runs every example
-tests/harness-test.sh     # determinism checks only, plain JVM, seconds not minutes
-scripts/build-api-jar.sh  # dsagame-api.jar, what students compile against
+tests/e2e.sh              # Java suite: builds, starts its own server, runs every case
+
+# Godot, from the repo root; each exits 1 on failure
+godot --headless --path client res://dev/smoke_battle.tscn        # the rules, no server
+godot --headless --path client res://dev/smoke_simulation.tscn    # replay, from fixtures
+godot --headless --path client res://dev/smoke_presentation.tscn
+godot --headless --path client res://dev/smoke_content.tscn
+godot --headless --path client res://dev/smoke_submit.tscn        # real pipeline, needs server
+godot --headless --path client res://dev/smoke_flow.tscn          # whole client, needs server
+godot --headless --path client res://dev/smoke_submit.tscn -- --record   # re-record fixtures
 ```
 
-There is no test framework and no per-test runner. Two ways to work on one case:
+There is no test framework. `smoke_battle` runs battles against GDScript
+students (`ScriptedStrategyClient`), so rule changes are tested without a
+server. One Java case by hand is the curl sequence in `DEVELOPMENT.md` 4.3.
 
-```bash
-# Fast inner loop: no server, no TeaVM. Swap in any examples/<case>/Submission.java.
-rm -rf build/check && mkdir -p build/check/dsagame/api
-cp examples/attack/Submission.java harness/*.java build/check/
-cp api/dsagame/api/*.java build/check/dsagame/api/
-javac --release 17 -d build/check/out $(find build/check -name '*.java')
-java -cp build/check/out Main smoke 1
+## In transition
 
-# One case through the real pipeline, against a running server:
-curl -s --data-binary @examples/demo_win/Submission.java \
-  "http://localhost:8080/compile?level=demo&student=alice"
-```
+`server/harness/`, `server/api/`, `server/examples/`, `server/starter/`, the
+`/compile` endpoint, `tests/harness-test.sh`, `scripts/build-api-jar.sh` and the
+fixtures `smoke_win.json` / `demo_win.json` are the old Java-side game. They are
+waiting to be deleted: don't build on them or extend them. `next/api` and
+`next/examples` move into `api/` and `examples/` when they go.
 
-The JVM loop is only a smoke test: **a JVM accepts code TeaVM rejects**, so
-anything touching `harness/` or `api/` has to be confirmed with `tests/e2e.sh`
-before you believe it.
+## Rules that are load-bearing
 
-## Architecture
+### Godot battle (`client/battle/`)
 
-`Server.java` (package `compileservice`) per request: temp dir → write
-`Submission.java` → copy `api/` + `harness/` in → `javac` in-process via
-`ToolProvider` → TeaVM to `classes.js` → `node` → read the marked line → delete
-the temp dir in a `finally`. Every expected failure is HTTP 200 with
-`{"status","message","console","result"}`; the client reads `status`, never the
-HTTP code.
+- **Never mutate a Resource during a battle.** Moves, UnitDefs, Encounters and
+  Controllers are shared; per-fight state lives on `Combatant` or `Battle`.
+- **No branch on unit kind or team name.** Behaviour belongs on a Controller or
+  in data; win/loss is relative to `player_side`.
+- **An effect never builds an event.** Effects call the primitives
+  (`deal_damage`, `heal`, `block`), which log and name the move.
+- **Randomness only from `battle.rng`.** Same code + same level = same battle;
+  `smoke_battle` checks it.
+- **No nodes, scene tree or `await` in `battle/`** — it runs on a worker thread
+  and blocks on HTTP.
+- **New content must not touch `battle.gd`, `simulation.gd`,
+  `battle_controller.gd`, `flow.gd` or `server/`.** A new move is a `.tres`
+  (plus an `Effect` subclass for a new mechanic), likewise units, levels and
+  AIs. The one exception is a genuinely new primitive on `Battle`
+  (`DEVELOPMENT.md` 2.9). If content forces another edit, that's a design flaw:
+  say so rather than working around it.
+- New content needs a GDScript student that wins it and one that doesn't in
+  `dev/smoke_battle.gd`.
 
-`Main` (harness) is the TeaVM entry point: `<levelId> <seed>`, runs every scenario
-of the level against a **fresh `new Submission()`**, prints a blank line then one
-`@@DSAGAME_RESULT@@<json>` line. Student `System.out` shares that stdout.
+### Java (`server/`)
 
-### Rules that are load-bearing
+- **Java knows nothing about the game.** No unit, move, hp or side in `server/`.
+- **`runner/` is flat and in the default package**, because Java can't reference
+  the default package from a named one, and `Server.copySources` keeps
+  directories. Only `dsagame.api` is named.
+- **TeaVM subset** in `runner/`, the API and student code: `StringBuilder`,
+  `ArrayList`, `LinkedHashMap`, `Math`, index loops. No reflection,
+  `String.format`, streams, records, `java.time`, files, threads. JSON is built
+  by hand.
+- **A JVM accepts code TeaVM gets wrong; only `tests/e2e.sh` counts.** Known
+  traps: TeaVM's `java.util.Random` ignores its seed; its `LinkedHashMap` calls
+  `get` internally, so `StrictMap` wraps one instead of overriding `get`.
+- **Student misbehaviour is not a server error.** Throws, nulls, bad shapes,
+  timeouts, crashes and output floods are `status: ok` with `error` set; the
+  client turns them into a loss. Every endpoint answers HTTP 200 with `status`.
 
-**Default package.** `harness/` and the student's `Submission` are both in the
-default package, because Java cannot reference the default package from a named
-one — a packaged harness could not instantiate `Submission`. Only `dsagame.api`
-is named. `harness/` must also stay **flat**: `Server.copySources` copies
-recursively preserving directories, so a subfolder would land as a package dir.
+### Contracts
 
-**TeaVM subset.** `harness/`, `api/` and student code all cross-compile. Use
-`StringBuilder`, `ArrayList`, `HashMap`, `java.util.Random`, `Math`, index loops.
-No reflection, `String.format`, streams, records, `java.time`, files, threads,
-network. JSON is built by hand (`Json.quote`) for this reason.
-
-**Determinism is tested.** Server seed is `(student + ":" + level).hashCode() &
-0x7fffffffL`; scenario `i` uses `seed + i * 7919L`; all randomness comes from
-`Random(scenarioSeed)` or `battle.random`. Same inputs must give byte-identical
-output, and nothing may depend on HashMap iteration order.
-
-**The protocol is additive only.** `docs/protocol.md` is the contract with the
-Godot client: new event types and new optional fields are fine, renames and
-removals are not. The same goes for `dsagame.api` — old starter files must keep
-compiling. Document every protocol change there.
-
-**Student misbehaviour is game state, not a server error.** A throw (catch
-`Throwable`), a null return, or an illegal move ends that scenario as a loss with
-`error` set; the run continues to the next scenario and the status stays `ok`.
-
-### The move system
-
-Every action is a `Move` object a combatant owns — the basic attack and pass
-included, so `Main` and `Battle` have no per-verb branches. Moves change the world
-only through two primitives, `Battle.dealDamage` and `Battle.heal`, which log
-their own events; **a move never builds an event**. Validation (ownership, target
-kind, dead targets) is one method, `Battle.useError`. Turn order is one method,
-`Battle.turnOrder`. `decide` is called once per living hero, in party order, with
-a snapshot taken right then.
-
-Adding a move, monster, hero or level should be a small additive change in one or
-two files — a new `Move` subclass plus a line in `Moves`/`Heroes`/`Monsters`/`Levels`.
-**If new content forces an edit to `Main`, `Battle` or `Server`, that is a design
-flaw; say so rather than working around it.** The one legitimate exception is a
-genuinely new primitive on `Battle`. `docs/adding-moves.md` is the how-to, with
-the `drain` move as the worked example.
-
-### Test fixtures
-
-`smoke` and `demo` are the only levels, both marked TEST ONLY; there is no real
-level content in the harness. Their numbers are pinned — `examples/attack` on
-`smoke` must keep producing byte-identical output, which is how harness changes
-are checked for regressions (diff against `git archive HEAD` of the old tree, do
-not just trust the assertions). Each `examples/<case>/Submission.java` is one e2e
-case; new content needs one submission that wins it and one that does not.
+- **Additive only**: the event vocabulary (`protocol.md`), the state shape
+  (`runner.md`) and the `Strategy` API. New events and fields are fine; renames
+  and removals break the client or old submissions. Document every change there
+  and in `client/README.md`'s event table.
+- Move ids and UnitDef names are keys for students, the log and `Content`. Don't
+  rename them.
+- Fixtures in `client/dev/fixtures/` are real recorded envelopes. Re-record them
+  only when a rule or level's numbers change on purpose, then run `smoke_battle`.

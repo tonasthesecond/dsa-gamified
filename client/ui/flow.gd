@@ -10,7 +10,7 @@ signal submit_pressed(source: String)
 signal step_pressed
 signal skip_pressed
 signal reset_pressed
-signal scenario_selected(index: int)
+signal leave_pressed
 
 var state: State = State.IDLE
 
@@ -18,7 +18,6 @@ var state: State = State.IDLE
 @onready var _submit: Button = %Submit
 @onready var _spinner: ProgressBar = %Spinner
 @onready var _replay: Control = %Replay
-@onready var _scenario: OptionButton = %Scenario
 @onready var _error: Label = %Error
 
 
@@ -29,7 +28,7 @@ func _ready() -> void:
 	%Step.pressed.connect(step_pressed.emit)
 	%Skip.pressed.connect(skip_pressed.emit)
 	%Reset.pressed.connect(reset_pressed.emit)
-	_scenario.item_selected.connect(scenario_selected.emit)
+	%Leave.pressed.connect(leave_pressed.emit)
 	_set_state(State.IDLE)
 
 
@@ -48,16 +47,19 @@ func show_submission_error(message: String, line: int) -> void:
 	_set_state(State.ERROR)
 
 
-func show_battle(scenario_count: int) -> void:
-	_scenario.clear()
-	for i in scenario_count:
-		_scenario.add_item("Scenario %d" % (i + 1), i)
+func show_battle() -> void:
 	_set_state(State.REPLAYING)
+
+
+## Back to the editor with nothing shown, as when a battle screen opens.
+func show_idle() -> void:
+	_set_state(State.IDLE)
 
 
 func _set_state(new_state: State) -> void:
 	state = new_state
 	_submit.disabled = state == State.SUBMITTING
+	%Leave.disabled = state == State.SUBMITTING
 	_editor.editable = state != State.SUBMITTING
 	_spinner.visible = state == State.SUBMITTING
 	_replay.visible = state == State.REPLAYING

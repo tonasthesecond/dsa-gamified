@@ -8,3 +8,4 @@ server_url = "http://localhost:8080"
 timeout_sec = 30.0
 default_level = "demo"
 student = "anonymous"
+decide_timeout_ms = 1000

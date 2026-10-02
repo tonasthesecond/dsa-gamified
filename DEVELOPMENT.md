@@ -1,13 +1,17 @@
 # Development guide
 
 How the whole thing fits together, what each piece is called and where it
-lives, and step-by-step recipes for adding moves, enemies, heroes and levels on
-both the Java side and the Godot side.
+lives, and step-by-step recipes for adding moves, units, levels and AIs, and
+for dropping the battle into some other kind of game.
 
-The detailed references are still:
+The detailed references are:
 
-- `server/docs/protocol.md`: the JSON contract between server and client.
-- `client/README.md`: the client's event table and "how to change the format".
+- `server/docs/runner.md`: the HTTP contract between Godot and Java, and the
+  state and action the student's code sees.
+- `server/docs/protocol.md`: the event vocabulary in the battle log (its
+  request and envelope sections describe the old service; see 1.3 for the
+  envelope as it is now).
+- `client/README.md`: the client's event table.
 
 This file is the map. Start here.
 
@@ -16,335 +20,431 @@ This file is the map. Start here.
 ## 1. The big picture
 
 ```
- ┌──────────── Godot client (client/) ────────────┐        ┌──────── Java server (server/) ────────┐
- │                                                │  HTTP  │                                       │
- │  Flow (UI) ──submit_pressed──► SubmitClient ───┼──POST──┼─► Server.java                         │
- │                                                │        │     javac + TeaVM + node              │
- │                                                │        │        │                              │
- │                                                │        │        ▼                              │
- │                                                │        │     Main.java  (the harness)          │
- │                                                │        │       runs the battle with the        │
- │                                                │        │       student's Submission, writes    │
- │                                                │        │       every event to a JSON log       │
- │  Simulation ◄──result_ready(envelope)── SubmitClient ◄──┼── JSON event log                      │
- │     │  one signal per event, on Step           │        │                                       │
- │     ▼                                          │        └───────────────────────────────────────┘
- │  Presentation  (draws it: today, print calls)  │
- └────────────────────────────────────────────────┘
+ ┌──────────────────────── Godot client (client/) ───────────────────────┐          ┌─── Java server (server/) ───┐
+ │                                                                       │          │                             │
+ │  Flow (UI) ──submit_pressed──► SubmitClient                           │          │                             │
+ │                                  │  1. POST /build (source) ─────────┼──────────┼─► javac + TeaVM             │
+ │                                  │                                    │          │                             │
+ │                                  ▼  on a worker thread                │          │                             │
+ │                            Battle.run()  ── every rule lives here     │          │                             │
+ │                                  │  2. POST /start ──────────────────┼──────────┼─► node, new Submission()    │
+ │                                  │  3. POST /decide (state) ─────────┼──────────┼─► decide(state) → action    │
+ │                                  │     ... once per student unit     │          │                             │
+ │                                  │         per turn ...              │          │                             │
+ │                                  │  4. POST /close ──────────────────┼──────────┼─► process and build gone    │
+ │                                  ▼                                    │          │                             │
+ │  Simulation ◄──result_ready(envelope)── the finished event log        │          └─────────────────────────────┘
+ │     │  one signal per event, on Step                                 │
+ │     ▼                                                                 │
+ │  Presentation  (draws it: today, print calls)                         │
+ └───────────────────────────────────────────────────────────────────────┘
 ```
 
-The important idea: **the server plays the whole battle, the client only
-replays it.** All game rules (damage, healing, who acts when, win/loss) are in
-Java. The client never computes damage. It receives a list of events like
-"e1 took 6 damage, now has 0 hp" and animates them one at a time.
+The important idea: **Godot plays the whole battle first, then replays it.**
+Every rule (units, moves, damage, turn order, enemy AI, win/loss, the seed)
+is in Godot. When one of the student's units has to act, Godot sends the
+current state to Java, Java runs the student's `decide`, and the action comes
+back. Nothing is shown until the battle is over; then the finished log goes to
+Simulation and Presentation, which replay it one event at a time.
+
+Java knows nothing about the game. It compiles `Submission.java`, and then
+passes a Map in and a Map out. The test for that: Java could host a completely
+different game without a code change.
 
 So:
 
-- A new **rule or mechanic** is Java work.
-- A new **visual** is Godot work.
-- A new **move or enemy** is usually both: Java to make it exist, Godot to give
-  it a name and an animation.
+- A new **rule, move, unit, level or AI** is Godot work, and usually just data.
+- A new **visual** is Godot work in Presentation and Content.
+- Java changes only if the way student code is compiled or run changes.
+
+### 1.1 One battle, start to finish
+
+1. Player clicks **Submit**. `SubmitClient` POSTs the source to `/build`. A
+   compile error comes back as `status: compile_error` and never becomes a
+   battle.
+2. `SubmitClient` loads the level (an `Encounter`), builds a `Battle` from it
+   and runs it on a worker thread.
+3. The battle calls `/start` once (a fresh `Submission`), then `/decide` once
+   per student unit per turn, until someone wins or the turn limit hits.
+4. Anything the student's code does wrong (throws, returns null, times out,
+   returns something that is not an action, makes an illegal move) ends the
+   battle as a **loss with `error` set**. It is part of playing, not a failure
+   of the game, so `status` stays `ok`.
+5. `/close`, then the envelope is emitted on the main thread and replayed.
+
+### 1.2 Where things live
+
+```
+client/
+  battle/            the battle component: rules, no nodes, no network
+    effects/         Effect and its subclasses, MoveScratch
+    controllers/     Controller, TelegraphController, StudentController
+  strategy/          how StudentController reaches student code: HTTP, or GDScript for tests
+  moves/ units/      data: one .tres per move and per kind of unit
+  levels/            data: one Encounter .tres per level
+  autoload/          Config, SubmitClient, Content
+  sim/ presentation/ ui/   replay, drawing, the UI screen
+  dev/               headless checks and fixtures
+server/
+  src/main/java/compileservice/   the HTTP service
+  runner/            what runs inside TeaVM next to the student's code
+  next/api/          the Strategy interface students implement
+  next/examples/     one Submission.java per test case
+  tests/e2e.sh       the Java test suite
+```
+
+`server/harness/`, `server/api/`, `server/examples/`, the old
+`/compile` endpoint and `client/dev/fixtures/smoke_win.json` /
+`demo_win.json` are the Java game from before the move. They are waiting to be
+deleted; don't build on them. `next/api` and `next/examples` move into
+`api/` and `examples/` when they go.
+
+### 1.3 The envelope
+
+What `SubmitClient.result_ready` hands to `Simulation.load_battle`:
+
+```json
+{"status": "ok", "message": "", "console": "what the student printed",
+ "result": {"won": true, "reason": "All enemies defeated", "error": "",
+            "events": [{"turn": 0, "type": "spawn", "unit": "hero", ...}, ...]}}
+```
+
+`status` is `ok`, or `compile_error`, `bad_request`, `runtime_error`, in
+which case `result` is `null` and `message` says why. `console` is cut at
+4,000 characters. The event vocabulary is `server/docs/protocol.md`'s, and is
+due to be redesigned.
 
 ---
 
-## 2. Java side (`server/`)
-
-Run everything from `server/`.
-
-```bash
-./gradlew run             # serve on :8080
-tests/e2e.sh              # full test suite (builds, starts its own server)
-tests/harness-test.sh     # determinism checks only, fast
-```
+## 2. The battle (`client/battle/`)
 
 ### 2.1 The pieces
 
-| piece | file(s) | what it does |
+| piece | file | what it is |
 |---|---|---|
-| **Server** | `src/main/java/compileservice/Server.java` | The HTTP service. For each request it writes the student's code to a temp dir, copies `api/` and `harness/` next to it, compiles with `javac`, cross-compiles to JavaScript with TeaVM, runs it with `node`, and sends back the result line. You almost never touch this. |
-| **Student API** | `api/dsagame/api/*.java` | What students code against: `Strategy` (the interface they implement), `GameState`, `Unit`, `MoveInfo`, `Action`, `TargetKind`. These are read-only snapshots, so students can't cheat by editing hp. |
-| **Main** | `harness/Main.java` | The battle loop. Entry point of the compiled program. For each scenario of the level it creates the units, a fresh `Submission`, and runs turns until someone wins or the turn limit hits. Prints the JSON result. |
-| **Battle** | `harness/Battle.java` | The state of one fight: the list of combatants, the RNG, the event log. Holds the **primitives** (`dealDamage`, `heal`, `block`), the one legality check (`useError`), turn order (`turnOrder`) and `use`, which runs a move. |
-| **EventLog** | `harness/EventLog.java` | Builds the JSON events. Only `Battle` and `Main` call it. |
-| **Combatant** | `harness/Combatant.java` | A fighter in a battle: id, name, hp, attack, which team, which moves. Mutable. Students see a `Unit` snapshot of it. |
-| **Move** | `harness/Move.java` | An action a combatant can take: id, name, description, target kind, power, and a **list of effects**. |
-| **Effect** | `harness/Effect.java` + `DamageEffect`, `HealEffect`, `BlockEffect` | One step of a move. A move runs its effects in order. |
-| **MoveState** | `harness/MoveState.java` | Scratch notepad shared by the effects of one move use, so a later effect can read what an earlier one did (drain heals by the damage that landed). |
-| **Moves** | `harness/Moves.java` | Catalogue of every move: one static factory each. |
-| **Heroes / Monsters** | `harness/Heroes.java`, `harness/Monsters.java` | Catalogue of every fighter: one static factory each. |
-| **Level** | `harness/Level.java` + `SmokeLevel`, `DemoLevel` | One exercise: who fights, how many scenarios, turn limit, what enemies do. |
-| **Levels** | `harness/Levels.java` | Registry: level id string → `Level` object. |
+| **Effect** | `effects/effect.gd` + `DamageEffect`, `HealEffect`, `BlockEffect`, `GuardEffect` | One step of a move. A Resource with one method, `apply(battle, user, target, scratch)`. |
+| **MoveScratch** | `effects/move_scratch.gd` | Notepad shared by the effects of one move use, so a later effect can read what an earlier one did (drain heals by the damage that landed). |
+| **Move** | `move.gd` | A Resource: `id`, `name`, `description`, `target` (`ENEMY`, `ALLY` or `SELF`, relative to the user's side), `max_targets`, and a **list of effects** run in order. No numbers of its own: its effects scale off the user's stats. |
+| **Stats** | `stats.gd` | A Resource: `hp`, `strength`, `magic`, `speed`. `scaled(stat, percent)` is how every effect turns a stat into a number. |
+| **UnitDef** | `unit_def.gd` | A Resource: what a kind of unit is. `name`, `stats`, `moves`. Nothing about sides or who controls it. |
+| **Controller** | `controllers/controller.gd` | Picks the actions of one side's units. The battle assigns it to a side. |
+| **TelegraphController** | `controllers/telegraph_controller.gd` | The plain AI: telegraphs its first move at the first living opponent, then does it. |
+| **StudentController** | `controllers/student_controller.gd` | Asks the student's code, through the `StrategyClient` in the battle's context. Turns every runner error into a message for the player. |
+| **Combatant** | `combatant.gd` | One unit in one battle: id, side, its own copy of the stats, hp, guard, moves, this turn's intent. The only thing that changes during a fight. Its `unit` is the shared UnitDef. |
+| **BattleSide** | `battle_side.gd` | A side: a `team` label for the log, a controller, its combatants. |
+| **Battle** | `battle.gd` | One fight. Holds the turn loop (`run`), turn order (`turn_order`), the one legality check (`use_error`), `use` (runs a move), the **primitives** (`deal_damage`, `heal`, `block`, `guard`), and `state_for`, the state the student sees. |
+| **BattleLog** | `battle_log.gd` | Builds the events. Only `Battle` writes to it. |
+| **BattleResult** | `battle_result.gd` | `won`, `reason`, `error`, `events`; `abort` if the battle could not finish at all. |
+| **Encounter** | `encounter.gd` + `SideSpec`, `UnitSlot` | A battle written down as data: sides, their controllers and units, `rng_seed`, `max_turns`, `player_side`, `shared_moves`. `create_battle(context)` turns it into a Battle. |
 
-### 2.2 What happens in one turn (`Main.runScenario`)
+### 2.2 What happens in `Battle.run`
 
-1. Every living enemy picks an **intent** (`level.chooseIntent`) and it is
-   logged. The student can see intents through `Unit.getIntent()`.
-2. Everyone acts in `battle.turnOrder()`: heroes first in party order, then
-   enemies.
-   - Hero: the student's `decide(state)` is called and returns an `Action`.
-   - Enemy: it does what it telegraphed.
-3. `battle.useError` checks the action is legal (move is known, target exists,
-   is alive, is the right kind). If a hero's action is illegal, the scenario is
-   lost with an error message. If an enemy's is (its target died), it's skipped.
-4. `battle.use(move, user, target, ...)` runs the move's effects. The effects
-   call the primitives, and the primitives log the events.
-5. After every action, check win/loss.
+1. A `spawn` event for every combatant, side by side.
+2. Every side's controller `begin`s once. For the student that is `/start`;
+   a constructor that throws ends the battle on turn 1.
+3. Each turn:
+   1. Every living unit's controller may `plan` an intent. The
+      TelegraphController does; the student's does not. Intents are logged and
+      every later state shows them.
+   2. Everyone acts in `turn_order()`: the living, **fastest first**; equal
+      speed goes by side order, then position on the side. Anyone who died
+      earlier in the turn is skipped.
+      Its guard from last turn drops first. The controller's `act` returns an
+      action, `{"move": id, "targets": [ids]}`; for the student that is their
+      command `"attack e1"` split on spaces.
+   3. `use_error` checks it: the move is known, the target exists, is alive and
+      is the right kind. If not, the controller's `refuse` decides: the student
+      loses with that message; the AI's move fizzles (its target died first)
+      and the battle goes on.
+   4. `use` runs the move's effects. The effects call the primitives, and the
+      primitives log the events.
+   5. After every action: if every other side is wiped out the player's side
+      won; if the player's side is, it lost.
+4. Out of turns is a loss: "Turn limit reached".
 
 ### 2.3 Rules you must not break
 
-- **Everything in `harness/` stays flat, in the default package.** No
-  subfolders, no `package` line.
-- **TeaVM subset only.** `ArrayList`, `HashMap`, `StringBuilder`,
-  `java.util.Random`, `Math`, index `for` loops. No streams, lambdas-over-streams,
-  `String.format`, records, reflection, `java.time`, threads.
-- **Deterministic.** Randomness comes only from `new Random(seed)` in
-  `Level.setup` or from `battle.random`. Never iterate a `HashMap` to decide
-  anything.
-- **A move/effect never builds an event.** It calls `battle.dealDamage`,
-  `battle.heal` or `battle.block`, which log for it.
-- **New content should not touch `Main`, `Battle` or `Server`.** The one
-  exception is a genuinely new primitive on `Battle` (see 2.6).
+- **Never change a Resource during a battle.** Godot shares loaded Resources,
+  so a Move or UnitDef changed in one fight is changed in every fight. Anything
+  that changes lives on `Combatant` (or the Battle).
+- **No branch on what kind of unit it is.** If you are about to write
+  `if enemy`, the behaviour belongs on a Controller (who decides and what
+  happens when they get it wrong) or on data (a Move, a UnitDef). Win and loss
+  are relative to `player_side`, not to a team name.
+- **An effect never builds an event.** It calls `battle.deal_damage`,
+  `battle.heal`, `battle.block` or `battle.guard`, which log for it and name the move.
+- **Randomness only from `battle.rng`** (seeded from the Encounter), never
+  `randi()` or `randf()`. The same code against the same level must give the
+  same battle; `dev/smoke_battle` checks it.
+- **No nodes, no scene tree, no `await` in `battle/`.** It runs on a worker
+  thread and blocks while the student's code thinks.
+- **New content should not touch `battle.gd`.** The one exception is a
+  genuinely new primitive (2.9).
 
 ### 2.4 Adding a move
 
-Three cases, from easiest to hardest.
+A move is a `.tres` in `client/moves/`. In the editor: FileSystem → right-click
+`moves/` → New → Resource → **Move**, then fill it in the Inspector.
 
-**(a) It's a plain hit or heal with different numbers.** One factory in
-`Moves.java`, nothing else:
+**(a) A plain hit or heal with different numbers.** Just data:
 
-```java
-static Move fireball() {
-    int power = 7;
-    return new Move("fireball", "Fireball", "Hit one enemy for your attack plus " + power + ".",
-            TargetKind.ENEMY, power, new DamageEffect(power));
-}
+| field | value |
+|---|---|
+| `id` | `fireball` |
+| `name` | `Fireball` |
+| `description` | `Hit one enemy for 150% of your magic.` |
+| `target` | `Enemy` |
+| `effects` | one `DamageEffect` with `stat` Magic, `percent` 150 |
+
+The `id` is the first word of the student's command (`"fireball e1"`), and the
+`move` field on every event the move causes. Content keys off it too. Pick it
+once and don't rename it.
+
+**A move never holds a raw number.** Every effect names a **stat of the user**
+(`Hp`, `Strength`, `Magic`, `Speed`) and a **`percent`** of it, rounded down:
+the basic `attack` is 100% of strength, `smite` 170%, `cleave` 70% per target,
+`heal` 100% of magic. So the same move hits harder in a stronger unit's hands,
+and balancing is done on units' stats. The description is the only place the
+student reads what a move does, so say the percentage there.
+
+**(b) It combines existing effects.** Still just data. Effects run in order and
+share one MoveScratch. The real `drain` is a `DamageEffect` (Magic, 100%), then
+a `HealEffect` with `on_user` on and `from_scratch` = `damage`: with
+`from_scratch` set, `percent` is taken of that number instead of a stat.
+
+**(c) It needs a new mechanic.** Write a new Effect subclass, then use it in a
+move. Example, a reckless hit whose user takes half the damage as recoil:
+
+`client/battle/effects/recoil_effect.gd`:
+
+```gdscript
+class_name RecoilEffect
+extends Effect
+## Hurts the user by a fraction of the damage an earlier effect of this move landed.
+
+@export var divisor: int = 2
+
+
+func apply(battle: Battle, user: Combatant, _target: Combatant, scratch: MoveScratch) -> void:
+	battle.deal_damage(user, scratch.get_value(MoveScratch.DAMAGE) / divisor)
 ```
 
-The first argument, `"fireball"`, is the **move id**. It's what students
-pass back in `Action.use`, and it's the `move` field on every event the move
-causes. The Godot side keys off it too. Pick it once and don't rename it.
+`moves/reckless.tres`: target `Enemy`, effects `DamageEffect` (Strength, 200%), then
+`RecoilEffect` (divisor 2). In the log that is an `action`, then two `damage`
+events with `"move": "reckless"`, one on the target and one on the user. No
+client change is needed for it to replay.
 
-`TargetKind` is `ENEMY`, `ALLY` (includes self) or `SELF`.
+`max_targets` (default 1) is how many ids the command may name: `cleave`
+has 2, so `"cleave e1 e2"` and `"cleave e1"` are both legal, and the effects
+run once per target in that order. A `Self` move takes no id at all.
 
-**(b) It combines existing effects.** Still one factory. Effects run in order
-and share a `MoveState`:
+`block` (`GuardEffect`, Strength, 100%) is not `BlockEffect`. `block` the
+move gives its user a **guard**: damage up to its strength, taken before its
+next action, is absorbed. `BlockEffect` is an immunity check that makes a move bounce off a
+target, logged as `blocked`.
 
-```java
-// Hit, then heal yourself by what landed (this is the real `drain`).
-new Move("drain", ..., TargetKind.ENEMY, power,
-        new DamageEffect(power), HealEffect.userFromState(MoveState.DAMAGE));
-```
+For a move that should *refuse* under some condition ("can't hit a flying
+unit"), subclass `BlockEffect`, override `reason(battle, user, target)` to
+return a message or `""`, and put it **first** in the effects. If it returns a
+reason it logs a `blocked` event and the rest of the move is skipped.
 
-**(c) It needs a new mechanic.** Write a new `Effect` subclass in its own file
-in `harness/`, then use it in a `Moves` factory. Example: a reckless hit where
-the user takes half the damage it dealt as recoil.
+**Giving the move to someone:** add it to a UnitDef's `moves`. A move nobody
+has does nothing. Moves every unit gets (today, `pass`) are the Encounter's
+`shared_moves`, added after the unit's own.
 
-`harness/RecoilEffect.java`:
+### 2.5 Adding a kind of unit
 
-```java
-/** Hurts the user by a fraction of the damage an earlier effect of this move landed. */
-class RecoilEffect extends Effect {
-    private final int divisor;
+A `.tres` in `client/units/`: New → Resource → **UnitDef**. `name` (shown to
+the student, and what Content looks art up by, so treat it as an id),
+`stats` (New → **Stats**: `hp`, `strength`, `magic`, `speed`), `moves` in
+order. Stats live inside the unit file; for several units sharing one stat
+line, save the Stats as its own `.tres` and point them at it. A battle copies
+them per combatant, so a future buff can change `combatant.stats` freely.
 
-    RecoilEffect(int divisor) {
-        this.divisor = divisor;
-    }
-
-    void apply(Battle battle, Combatant user, Combatant target, MoveState state) {
-        battle.dealDamage(user, state.get(MoveState.DAMAGE) / divisor);
-    }
-}
-```
-
-`harness/Moves.java`:
-
-```java
-static Move reckless() {
-    int power = 6;
-    return new Move("reckless", "Reckless Swing",
-            "Hit one enemy for your attack plus " + power + ", and take half of it yourself.",
-            TargetKind.ENEMY, power, new DamageEffect(power), new RecoilEffect(2));
-}
-```
-
-On the wire that produces an `action`, then two `damage` events, both with
-`"move":"reckless"`: one on the target, one on the user. No protocol change,
-no client code change needed for it to replay.
-
-For a move that should *refuse* under some condition (e.g. "can't hit flying
-enemies"), subclass `BlockEffect`, implement `reason(...)` to return a message
-or `null`, and put it **first** in the effects list. If it returns a reason it
-logs a `blocked` event and the rest of the move is skipped.
-
-**Giving the move to someone:** add it to a hero or monster's move list (next
-section). A move nobody has does nothing.
-
-### 2.5 Adding an enemy (or a hero)
-
-One factory in `Monsters.java` (or `Heroes.java`):
-
-```java
-static Combatant orc(String id, int maxHp) {
-    return new Combatant(id, "Orc", maxHp, 4, true, Moves.reckless(), Moves.attack());
-}
-```
-
-Arguments: per-battle id (`"e1"`), **name** (`"Orc"`), max hp, attack,
-`true` for enemy / `false` for hero, then its moves in order. `pass` is added
-automatically.
-
-- The **name** is what the Godot client uses to look up the unit's art, so
-  treat it as an id too.
-- **Order matters for enemies:** by default an enemy uses its **first** move on
-  the first living hero every turn. If the first move is a heal, or you want
-  smarter AI, override `chooseIntent` in the level (below).
-
-Then put it in a level's `setup`.
+There is no hero or monster: the same UnitDef can be on the party's side in one
+level and the enemy's in the next (`levels/swapped.tres` does exactly that).
+Order matters only to an AI that cares: the TelegraphController always uses the
+**first** move.
 
 ### 2.6 Adding a level
 
-Create `harness/ExampleLevel.java`:
+A `.tres` in `client/levels/`: New → Resource → **Encounter**.
 
-```java
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
+| field | meaning |
+|---|---|
+| `rng_seed` | everything random in this level comes from it |
+| `max_turns` | turn limit before it's a loss (default 20) |
+| `player_side` | the index of the side whose win or loss is reported (default 0) |
+| `shared_moves` | moves every unit gets; put `moves/pass.tres` here |
+| `sides` | in side order, which breaks speed ties. Each a **SideSpec**: `team` (a label for the log, `hero` or `enemy`), `controller` (New StudentController, New TelegraphController, or your own), `units` |
+| `units` | each a **UnitSlot**: `id` (unique in the battle, like `e1`), `unit` (a UnitDef), `bonus_max_hp` (up to this much extra max hp, rolled from the seed) |
 
-class ExampleLevel extends Level {
-    String id() { return "example"; }
+The level's id is its file name: `SubmitClient.submit(source, "example")` plays
+`res://levels/example.tres`. To play it from the editor, set `default_level`
+in `config/server_config.tres`.
 
-    List<Combatant> setup(long seed) {
-        Random random = new Random(seed);
-        List<Combatant> units = new ArrayList<Combatant>();
-        units.add(Heroes.knight("knight"));            // heroes first
-        units.add(Monsters.orc("e1", 20 + random.nextInt(6)));  // then enemies
-        return units;
-    }
-}
+### 2.7 Adding an AI
+
+Subclass `Controller`, or `TelegraphController` to keep "telegraph, then do
+it", and override what differs. Example, an AI that goes for the weakest
+opponent:
+
+```gdscript
+class_name WeakestFirstController
+extends TelegraphController
+## Telegraphs its first move at the living opponent with the least hp.
+
+
+func plan(battle: Battle, unit: Combatant) -> Dictionary:
+	var weakest: Combatant = null
+	for other in battle.turn_order():
+		if other.side != unit.side and (weakest == null or other.hp < weakest.hp):
+			weakest = other
+	return {"move": unit.moves[0], "targets": [weakest] as Array[Combatant]}
 ```
 
-Register it with one line in `Levels.get`:
+Then pick it as a side's `controller` in a level. The four methods, all
+optional:
 
-```java
-if ("example".equals(id)) {
-    return new ExampleLevel();
-}
-```
-
-Optional overrides on `Level`:
-
-| override | default | use it for |
+| method | when | returns |
 |---|---|---|
-| `scenarioCount()` | 3 | how many seeds the student's code is tested on |
-| `maxTurns()` | 20 | turn limit before it's a loss |
-| `chooseIntent(enemy, battle)` | first move on first living hero | enemy AI. Return `new Intent(move, target)`; use `battle.random` for randomness |
-| `blockReason(target, battle)` | `null` | a level-wide rule like "this boss is shielded until X" |
+| `begin(battle)` | once, before turn 1 | `{}`, `{"error": msg}` to end the battle as a loss, `{"abort": ...}` |
+| `plan(battle, unit)` | start of each turn | `{"move": Move, "targets": Array[Combatant]}` to telegraph, `{}` for nothing |
+| `act(battle, unit)` | the unit's turn | `{"action": {"move": id, "targets": [ids]}}`, `{"error": msg}`, `{"abort": ...}` |
+| `refuse(battle, unit, problem)` | its action was illegal | the error that ends the battle, or `""` to let it fizzle |
 
-**When you really do need to touch `Battle`:** only if a mechanic can't be
-expressed as damage, heal or block. Things like status effects over time
-(poison, stun), buffs to `attack`, or shields that persist between turns need
-state on `Combatant` plus a new primitive on `Battle` that logs a new event
-type. That's a protocol addition: document the new event in
-`server/docs/protocol.md`, and give it a `move` field so the client picks it up
-automatically.
+Use `battle.rng` for anything random. Controllers hold no state (they are
+shared Resources); anything an AI needs to remember goes on the Combatant or in
+`battle.context`.
 
-### 2.7 Testing Java changes
+### 2.8 Using the battle somewhere else
 
-1. Write two submissions under `server/examples/<case>/Submission.java`: one
-   that wins your level and one that loses.
-2. Add assertions for them in `server/tests/e2e.sh` (copy the `demo_win` /
-   `demo_lose` blocks).
-3. Run `tests/e2e.sh`. It goes through the real TeaVM, and **code the JVM
-   accepts can still fail in TeaVM**, so don't trust the quick loop alone.
+A Level is only one way to start a battle. `Battle` takes plain sides, so a
+roguelike carrying hp between floors, or an overworld starting a fight on
+contact, builds them itself:
 
-Quick inner loop, no server, plain JVM (a smoke test only):
+```gdscript
+var shared: Array[Move] = [preload("res://moves/pass.tres")]
+var party: Array[Combatant] = []
+for member in run_state.party:              # whatever your game keeps
+	var unit := Combatant.new(member.id, member.unit_def, 0, member.max_hp, shared)
+	unit.hp = member.hp                     # carried over from the last fight
+	party.append(unit)
+var foes: Array[Combatant] = [Combatant.new("e1", preload("res://units/goblin.tres"), 1, 14, shared)]
 
-```bash
-rm -rf build/check && mkdir -p build/check/dsagame/api
-cp examples/demo_win/Submission.java harness/*.java build/check/
-cp api/dsagame/api/*.java build/check/dsagame/api/
-javac --release 17 -d build/check/out $(find build/check -name '*.java')
-java -cp build/check/out Main demo 1
+var rng := RandomNumberGenerator.new()
+rng.seed = run_state.seed + run_state.floor
+var battle := Battle.new(
+	[BattleSide.new("hero", StudentController.new(), party),
+	 BattleSide.new("enemy", TelegraphController.new(), foes)] as Array[BattleSide],
+	0, 20, rng, {StudentController.CONTEXT_KEY: client})
+var result := battle.run()
+# result.won, result.events; read hp back off `party` for the next fight.
 ```
 
-Against a running server:
+A combatant's `side` (third argument) must be the index of the BattleSide it
+is in. The events go to `Simulation.load_battle` wrapped in an envelope (1.3),
+or anywhere else.
 
-```bash
-curl -s --data-binary @examples/demo_win/Submission.java \
-  "http://localhost:8080/compile?level=example&student=alice"
+With the student's code in the loop, `run` blocks on HTTP, so call it off the
+main thread and create the client the way `SubmitClient._build_and_run` does:
+`/build` once, an `HttpStrategyClient` per battle, `/close` at the end. One
+build can play any number of battles; each `/start` is a fresh `Submission`.
+For a fight with no student at all, give every side an AI and `run` needs no
+network.
+
+### 2.9 When you really do need to touch `Battle`
+
+Only for a mechanic that can't be expressed as damage, heal, block or guard:
+status effects over turns (poison, stun), buffs to a stat. Those need state
+on `Combatant`, a new primitive on `Battle` that changes it, and a new event
+from `BattleLog`. `guard` is the worked example: `Combatant.guard`,
+`Battle.guard`, `deal_damage` reading it, `BattleLog.guard`, and `GuardEffect`. Give the event a `move` field (the primitive
+gets it from `_resolving`) and the client's `effect_applied` signal picks it
+up with no change to Simulation. Add it to the event table in
+`server/docs/protocol.md` and `client/README.md`.
+
+### 2.10 What the student sees
+
+`Battle.state_for(unit)` builds it, in the shape of `server/docs/runner.md`:
+
+```json
+{"turn": 1,
+ "self":    {"id": "knight", "name": "Knight", "hp": 34, "maxHp": 34,
+             "strength": 6, "magic": 0, "speed": 4, "guard": 0, "intent": null,
+             "moves": [{"id": "attack", "name": "Attack", "description": "...", "target": "enemy", "targets": 1}, ...]},
+ "allies":  [ ...the living on its side, itself included, fastest first... ],
+ "enemies": [ ...the living on every other side, fastest first, each with its "intent"... ]}
 ```
 
-Don't change `SmokeLevel` or the numbers it uses. Its output is pinned and
-the tests use it to catch regressions.
+The student answers with a **command**, a String: the move id, then up to
+`targets` ids, separated by spaces. `"smite e1"`, `"cleave e1 e2"`, `"block"`.
+An intent in the state is the same kind of String: `"attack knight"`.
+`StudentController.parse` splits it; `Battle.use_error` checks it. A new field is one more key
+in `_view` or `state_for`; students read it with `get`. Removing or renaming
+one breaks every submission that reads it.
 
 ---
 
-## 3. Godot side (`client/`)
+## 3. The rest of the Godot client
 
 Open `client/project.godot` in Godot 4.7, start the server, press F5.
 
 ### 3.1 The pieces
 
-`main.tscn` is the running game. Its tree:
+`main.tscn` is the running game, a test rig: a top-down overworld, and the
+battle screen on a layer above it.
 
 ```
-BattleController   (battle_controller.gd)  ← wires everything together
-├── Simulation     (sim/simulation.gd)
-├── Presentation   (presentation/presentation.tscn)
-└── Flow           (ui/flow.tscn)
+Main                 (main.gd)  ← player movement, zones open the battle
+├── Overworld
+│   ├── Player       CharacterBody2D, arrows or WASD
+│   └── DemoZone …   Area2D with metadata `level`; walking in opens that level
+└── BattleLayer      CanvasLayer, hidden until a zone opens it
+    └── BattleController   (battle_controller.gd)  ← wires everything together
+        ├── Simulation     (sim/simulation.gd)
+        ├── Presentation   (presentation/presentation.tscn), drawing into Stage
+        ├── Stage          %HeroColumn | %EnemyColumn, %Banner
+        └── Flow           (ui/flow.tscn)
 ```
 
-Plus three **autoloads** (global singletons, see Project Settings → Autoload):
-`Config`, `SubmitClient`, `Content`.
+A new zone is one more Area2D under Overworld with a `level` metadata entry
+(`res://levels/<level>.tres`). `BattleController.open(level)` shows an empty
+screen for it; once a battle loads it plays itself one event every
+`step_seconds`, and Flow's Leave emits `closed` to go back.
+
+Plus three **autoloads** (Project Settings → Autoload): `Config`,
+`SubmitClient`, `Content`.
 
 | system | file | in plain words |
 |---|---|---|
-| **Flow** | `ui/flow.gd`, `ui/flow.tscn` | **The UI screen**: the code editor, the Submit button, the spinner, the error label, and the replay buttons (Scenario dropdown, Step, Skip, Reset). It's a small state machine: `IDLE → SUBMITTING → REPLAYING` or `ERROR`. It knows nothing about battles. It only reports "the player clicked X" through signals, and shows whatever it's told to show. |
-| **SubmitClient** | `autoload/submit_client.gd` | **The network layer.** `SubmitClient.submit(source, level)` POSTs the code to the server. Emits `result_ready(envelope)` with the decoded JSON, or `submit_failed(reason)` if the server couldn't be reached. |
-| **Config** | `autoload/config.gd`, `config/server_config.tres` | **Settings**: server URL, timeout, level, student name. Edit the `.tres`. |
-| **Simulation** | `sim/simulation.gd` | **The replay engine.** Takes the server's JSON and steps through its events one at a time, like a tape player. It keeps a tiny bit of state (each unit's hp, alive or dead) and emits **one signal per event**. No animation, no timers, no visuals. |
-| **Presentation** | `presentation/presentation.gd`, `.tscn` | **What the player sees of the battle.** Listens to Simulation's signals and draws them. Right now it just `print`s each one. **This is the file you rebuild with sprites, tweens and health bars.** |
-| **Content** | `autoload/content.gd`, `content/unit_data.gd`, `content/move_data.gd` | **The client's catalogue**: display name, description, scene and animation key for each unit and move id. Presentation looks things up here. |
-| **BattleController** | `battle_controller.gd` | **The switchboard.** The only script that knows about more than one system. All the connections are in its `_ready()`: Flow's Submit → SubmitClient, SubmitClient's result → Simulation, Simulation → Presentation, Flow's Step/Skip/Reset → Simulation. |
+| **Flow** | `ui/flow.gd`, `ui/flow.tscn` | **The UI screen**: code editor, Submit, spinner, error label, and the replay buttons (Step, Skip, Reset) and Leave. A small state machine: `IDLE → SUBMITTING → REPLAYING` or `ERROR`. It knows nothing about battles; it reports clicks through signals and shows what it's told. |
+| **SubmitClient** | `autoload/submit_client.gd` | **Build, play, hand over.** `submit(source, level)` compiles the source, runs the level's battle on a worker thread, and emits `result_ready(envelope)`, or `submit_failed(reason)` if the server couldn't be reached. |
+| **Config** | `autoload/config.gd`, `config/server_config.tres` | **Settings**: `server_url`, `timeout_sec` (the compile step), `default_level`, `decide_timeout_ms` (per call to the student's code, 1 to 10,000). Edit the `.tres`. |
+| **Simulation** | `sim/simulation.gd` | **The replay engine.** Steps through the finished log one event at a time, like a tape player. Keeps each unit's hp and alive/dead, and emits **one signal per event**. No animation, no timers. |
+| **Presentation** | `presentation/presentation.gd`, `.tscn` | **What the player sees.** Listens to Simulation, prints each signal, and with a `stage` draws each unit as a ColorRect: the first team to spawn on the left, the rest on the right, the unit acting in yellow, the dead in grey. **This is the file you rebuild with sprites, tweens and health bars.** |
+| **Content** | `autoload/content.gd`, `content/unit_data.gd`, `content/move_data.gd` | **The display catalogue**: display name, description, scene and animation key per unit name and move id. Presentation looks things up here. Separate from the rules in `battle/`. |
+| **BattleController** | `battle_controller.gd` | **The switchboard.** Every cross-system connection is in its `_ready()`. |
 
-"Main" on the Godot side is just `main.tscn`, the scene that holds the four
-nodes above. On the Java side `Main.java` is the battle loop. They're
-unrelated.
+### 3.2 Simulation signals (what Presentation listens to)
 
-### 3.2 The flow of one submit
-
-1. Player clicks **Submit** → `Flow.submit_pressed(source)`.
-2. BattleController → `SubmitClient.submit(source, level)`. Flow shows the
-   spinner.
-3. Server responds → `SubmitClient.result_ready(envelope)` →
-   `Simulation.load_battle(envelope)`.
-4. If `status != "ok"` (compile error, timeout...) → `Simulation.submission_failed(message, line)`
-   → `Flow.show_submission_error` highlights the line.
-   Otherwise → `Simulation.battle_loaded(count)` → `Flow.show_battle` shows the
-   replay controls, and scenario 0 is selected.
-5. Player clicks **Step** → `Simulation.step()` applies one event and emits its
-   signal → Presentation animates it. **Skip** → `skip_to_end()` steps until
-   done. **Reset** → back to event 0, emits `scenario_reset`.
-
-### 3.3 Simulation signals (what Presentation listens to)
-
-Every event signal carries the raw event `Dictionary` from the server (see the
-event table in `server/docs/protocol.md`). Numbers are already `int`.
+Every event signal carries the raw event `Dictionary` (see the event table in
+`server/docs/protocol.md`). Numbers are already `int`.
 
 | signal | fires for | useful fields | typical visual |
 |---|---|---|---|
-| `battle_loaded(scenario_count)` | a good envelope arrived | | clear the stage |
-| `scenario_reset(index)` | Reset, or a scenario was picked | | remove all unit nodes, start over |
+| `battle_loaded()` | a good envelope arrived | | clear the stage |
+| `battle_reset()` | Reset, and right after loading | | remove all unit nodes, start over |
 | `submission_failed(message, line)` | compile error etc. | | (Flow handles it) |
-| `spawned(event)` | `spawn` | `unit` (id like `"e1"`), `name` (`"Goblin"`), `team` (`"hero"`/`"enemy"`), `hp`, `maxHp` | create the unit's sprite, look up `Content.get_unit(event.name)` |
-| `intent(event)` | `intent` | `unit`, `move`, `target` | show an icon over the enemy of what it will do |
-| `action(event)` | `action` | `unit`, `move`, `target` (missing for `pass`) | play the user's attack/cast animation, `Content.get_move(event.move)` |
-| `effect_applied(event)` | **everything a move did**: `damage`, `heal`, `blocked`, and any future effect type | `type`, `unit` (who was affected), `move`, and `amount`, `hp` or `reason` | hit flash, damage number, health bar tween |
-| `died(event)` | `death` | `unit` | death animation, remove sprite |
+| `spawned(event)` | `spawn` | `unit` (id like `"e1"`), `name` (`"Goblin"`), `team`, `hp`, `maxHp` | create the unit's sprite, `Content.get_unit(event.name)` |
+| `intent(event)` | `intent` | `unit`, `move`, `target` | an icon over the unit of what it will do |
+| `action(event)` | `action` | `unit`, `move`, `target` (missing for `pass`) | the user's attack/cast animation, `Content.get_move(event.move)` |
+| `effect_applied(event)` | **everything a move did**: `damage`, `heal`, `blocked`, any future effect | `type`, `unit` (who was affected), `move`, and `amount`, `hp` or `reason` | hit flash, damage number, health bar tween |
+| `died(event)` | `death` | `unit` | death animation |
 | `ended(won, reason)` | `end` | | victory/defeat banner |
-| `unknown_event(event)` | a new structural event the client doesn't know yet | | ignore; replay continues |
+| `unknown_event(event)` | a new structural event without `move` | | ignore; replay continues |
 
-Typical sequence for one knight attack that kills a goblin:
+Typical sequence for one knight hit that kills a goblin:
 
 ```
 action          {unit: "knight", move: "smite", target: "e1"}
@@ -352,18 +452,16 @@ effect_applied  {type: "damage", unit: "e1", amount: 10, hp: 0, move: "smite"}
 died            {unit: "e1"}
 ```
 
-**Why `effect_applied` is one signal:** any event caused by a move carries a
-`move` field, and they all go through `effect_applied`. A new effect on the
-server (like the recoil above, or a future `poison` event) arrives in Godot
-with **no change to Simulation**. Presentation decides what it looks like.
+**Why `effect_applied` is one signal:** every event a move causes carries
+`move`, so a new effect (recoil, a future `poison` event) arrives with **no
+change to Simulation**. Presentation decides what it looks like.
 
-You can also ask Simulation for current state at any time:
-`simulation.unit_ids()`, `simulation.unit_state("e1")` →
-`{name, team, hp, max_hp, alive}`, `simulation.turn`, `simulation.current_scenario()`.
+At any time: `simulation.unit_ids()`, `simulation.unit_state("e1")` →
+`{name, team, hp, max_hp, alive}`, `simulation.turn`, `simulation.battle()`.
 
-### 3.4 Presentation hooks
+### 3.3 Presentation hooks
 
-Presentation dispatches `effect_applied` through two dictionaries at the top of
+Presentation dispatches `effect_applied` through two tables at the top of
 `presentation/presentation.gd`:
 
 ```gdscript
@@ -373,118 +471,167 @@ var type_hooks: Dictionary[String, Callable] = {
 	"heal": func(event): ...,
 	"blocked": func(event): ...,
 }
-# By move id. Extra flourish for one specific move, runs after the type hook.
+# By move id. Extra flourish for one move, runs after the type hook.
 var move_hooks: Dictionary[String, Callable] = {}
 ```
 
-So the recoil from `reckless` is a `damage` event and already plays the normal
-damage visual. If you want something special for it:
+The recoil from `reckless` is a `damage` event and already plays the damage
+visual. For something special: `"reckless": func(event) -> void: _screen_shake()`
+in `move_hooks`. A new event type is one entry in `type_hooks`; without one,
+it prints `effect_applied (no type hook for ...)` and the replay carries on.
 
-```gdscript
-var move_hooks: Dictionary[String, Callable] = {
-	"reckless": func(event: Dictionary) -> void: _screen_shake(),
-}
-```
+### 3.4 Giving a move or unit its look
 
-A brand-new effect type from the server (say `"poison"`) is one more entry in
-`type_hooks`. If you don't add one, it prints `effect_applied (no type hook
-for poison)` and the replay carries on. `hp` is still applied in Simulation if
-the event has it.
-
-### 3.5 Adding a move or enemy in Godot
-
-After adding it on the server, register it in `autoload/content.gd`, in
-`_ready()`. Replace the `--- PLACEHOLDER ---` block with real rows:
+Register it in `autoload/content.gd`, in `_ready()`, replacing the
+`--- PLACEHOLDER ---` block:
 
 ```gdscript
 func _ready() -> void:
 	var orc := UnitData.new()
 	orc.display_name = "Orc"
-	orc.scene = preload("res://units/orc.tscn")   # optional until there's art
-	register_unit("Orc", orc)                      # key = the Java *name*, not "e1"
+	orc.scene = preload("res://art/orc.tscn")   # optional until there's art
+	register_unit("Orc", orc)                    # key = the UnitDef's name, not "e1"
 
 	var reckless := MoveData.new()
 	reckless.display_name = "Reckless Swing"
-	reckless.description = "Big hit, but you take half of it yourself."
 	reckless.animation_key = &"heavy_swing"
-	register_move("reckless", reckless)            # key = the Java move id
+	register_move("reckless", reckless)          # key = the Move's id
 ```
 
-You can also make `.tres` resources of `UnitData` / `MoveData` in the editor and
-`load()` them here instead of building them in code.
-
-Keys must match the server exactly:
-
-| Godot key | comes from Java |
-|---|---|
-| `register_unit("Orc", ...)` | 2nd argument of `new Combatant(id, "Orc", ...)` |
-| `register_move("reckless", ...)` | 1st argument of `new Move("reckless", ...)` |
-
-A missing row is not a crash: `get_unit`/`get_move` return `null` and
+A missing row is not a crash: `get_unit` / `get_move` return `null` and
 Presentation prints `(no Content row for ...)`.
-
-### 3.6 Testing Godot without the server
-
-Simulation doesn't care where the JSON comes from. Feed it a saved response:
-
-```gdscript
-var sim: Simulation = $Simulation
-presentation.listen_to(sim)
-sim.load_battle(JSON.parse_string(FileAccess.get_file_as_string("res://dev/fixtures/demo_win.json")))
-sim.step()          # one event
-sim.skip_to_end()   # all of it
-```
-
-That is exactly what `dev/smoke_presentation.gd` does. The fixtures in
-`dev/fixtures/` are real server responses. To make one for new content, save
-the server's output:
-
-```bash
-cd server && curl -s --data-binary @examples/<case>/Submission.java \
-  "http://localhost:8080/compile?level=example&student=alice" > ../client/dev/fixtures/example_win.json
-```
-
-Headless checks, from the repo root:
-
-```bash
-godot --headless --path client res://dev/smoke_simulation.tscn
-godot --headless --path client res://dev/smoke_presentation.tscn
-godot --headless --path client res://dev/smoke_content.tscn
-godot --headless --path client res://dev/smoke_flow.tscn      # needs server
-```
-
-To try a different level from the editor, change `default_level` in
-`config/server_config.tres`.
 
 ---
 
-## 4. Checklists
+## 4. Java (`server/`)
 
-**New move (existing effects only)**
-1. `server/harness/Moves.java`: factory.
-2. Give it to someone in `Heroes.java` / `Monsters.java`.
+Needs JDK 17 (`JAVA_HOME` pointing at it) and `node` on the PATH. Run
+everything from `server/`: the service reads `runner/` and `next/api/` from its
+working directory.
+
+```bash
+./gradlew run      # serve on :8080
+tests/e2e.sh       # the Java test suite: builds, starts its own server
+```
+
+### 4.1 The pieces
+
+| piece | file(s) | what it does |
+|---|---|---|
+| **Server** | `src/main/java/compileservice/Server.java` | The endpoints: `/build` (javac + TeaVM, keeps the build), `/start`, `/decide`, `/close`. Always HTTP 200 with a `status`. |
+| **Builds** | `Builds.java` | Compiled submissions by id, each with at most one running battle. Closes builds idle for 60 s. |
+| **Instance** | `Instance.java` | One node process for one battle. Sends a request, waits for the reply with the per-call timeout, kills the process on a timeout. |
+| **Strategy** | `next/api/dsagame/api/Strategy.java` | What students implement: `String decide(Map<String, Object> state)`, returning a command such as `"attack e1"`. The only named package. |
+| **Runner** | `runner/Runner.java` | The TeaVM main class. Makes the `Submission`, turns the state JSON into Maps, calls `decide`, turns the answer back into JSON, and reports anything that went wrong as an error `kind`. |
+| **Json, StrictMap** | `runner/Json.java`, `runner/StrictMap.java` | Hand-rolled JSON to Map/List and back. Every JSON object becomes a StrictMap, whose `get` throws, naming the key, for a key that isn't there. |
+| **host.js** | `runner/host.js` | The node side: loads the compiled program once, calls `main` once per request, captures everything the student prints. |
+
+### 4.2 Rules you must not break
+
+- **Java knows nothing about the game.** No unit, move, hp or side anywhere in
+  `server/`. A key the client adds to the state needs no Java change.
+- **`runner/` stays flat, in the default package.** Java can't reference the
+  default package from a named one, so a packaged runner could not create
+  `Submission`; and `copySources` keeps directories, so a subfolder would
+  become a package.
+- **TeaVM subset** for everything in `runner/`: `StringBuilder`, `ArrayList`,
+  `LinkedHashMap`, `Math`, index loops. No reflection, `String.format`,
+  streams, records, `java.time`, files, threads. JSON is built by hand for
+  this reason.
+- **A JVM accepts code TeaVM gets wrong**, so only `tests/e2e.sh` counts. Two
+  that bit us: TeaVM's `java.util.Random` ignores its seed, and its
+  `LinkedHashMap` calls `get` from its own methods, so overriding `get` in a
+  subclass recursed forever (hence StrictMap wraps one instead).
+- **Student misbehaviour is not a server error.** Throws, nulls, bad shapes,
+  timeouts, crashes and too much output come back as `status: ok` with
+  `error` set, and the client decides what that means for the battle.
+
+### 4.3 Testing Java changes
+
+Each `next/examples/<case>/Submission.java` is one case, driven through
+`/build`, `/start` and `/decide` with `next/state.json` and asserted in
+`tests/e2e.sh`. They cover compile errors, the package line, fields lasting a
+battle, and every error kind.
+
+By hand, against a running server:
+
+```bash
+curl -s --data-binary @next/examples/first_enemy/Submission.java localhost:8080/build
+curl -s -X POST "localhost:8080/start?build=<build>&timeout_ms=1000"
+curl -s --data-binary @next/state.json "localhost:8080/decide?instance=<instance>"
+curl -s -X POST "localhost:8080/close?build=<build>"
+```
+
+---
+
+## 5. Testing
+
+Headless checks, from the repo root (`godot` is your Godot 4.7 binary):
+
+```bash
+godot --headless --path client res://dev/smoke_battle.tscn        # the rules; no server; exits 1 on failure
+godot --headless --path client res://dev/smoke_simulation.tscn    # Simulation, from fixtures
+godot --headless --path client res://dev/smoke_presentation.tscn  # Presentation, from fixtures
+godot --headless --path client res://dev/smoke_content.tscn       # Content lookups
+godot --headless --path client res://dev/smoke_submit.tscn        # real pipeline (needs server)
+godot --headless --path client res://dev/smoke_flow.tscn          # whole client (needs server)
+cd server && tests/e2e.sh                                         # Java
+```
+
+**`dev/smoke_battle`** plays battles with students written in GDScript
+(`ScriptedStrategyClient`), so the rules are tested with no server. It checks:
+
+- the battles the Java harness recorded (`smoke_win.json`, `demo_win.json`),
+  event for event;
+- the battles recorded through the real pipeline (`smoke.json`, `demo.json`),
+  so nothing is lost on the way to Java and back;
+- every rule that ends a battle early, with its exact message;
+- every student error kind;
+- the same code giving the same battle, and another seed giving another;
+- the swapped level.
+
+To test new content, add a GDScript student to it that wins and one that
+doesn't, as the `_demo_win` and `_demo_lose` there do.
+
+**Fixtures** in `dev/fixtures/` are real envelopes. `smoke.json` and
+`demo.json` are recorded from `Submission.java` and `demo_win.java` by:
+
+```bash
+godot --headless --path client res://dev/smoke_submit.tscn -- --record
+```
+
+Re-record them when a rule or a level's numbers change on purpose, then run
+`smoke_battle`: it tells you whether the offline battles still agree.
+
+---
+
+## 6. Checklists
+
+**New move (existing effects)**
+1. `client/moves/<id>.tres`: a Move.
+2. Add it to a UnitDef's `moves`.
 3. `client/autoload/content.gd`: `register_move("<id>", ...)`.
-4. Optional: `move_hooks` entry in `presentation.gd`.
-5. Example submissions + `tests/e2e.sh`, run it.
+4. Optional: a `move_hooks` entry in `presentation.gd`.
 
 **New move with a new mechanic**
-Same as above, plus a new `server/harness/<Name>Effect.java`. If it can't be
-built from `dealDamage`/`heal`/`block`, it needs a new `Battle` primitive and a
-new event type, which means a `server/docs/protocol.md` update and a
-`type_hooks` entry in `presentation.gd`.
+Same, plus `client/battle/effects/<name>_effect.gd`. If it can't be built from
+`deal_damage` / `heal` / `block` / `guard`, it needs a new primitive and event (2.9) and
+a `type_hooks` entry in `presentation.gd`.
 
-**New enemy / hero**
-1. `server/harness/Monsters.java` or `Heroes.java`: factory.
-2. Put it in a level's `setup`.
+**New kind of unit**
+1. `client/units/<name>.tres`: a UnitDef.
+2. Put it in a level's side.
 3. `client/autoload/content.gd`: `register_unit("<Name>", ...)`.
 
 **New level**
-1. `server/harness/<Name>Level.java`, a `Level` subclass.
-2. One line in `Levels.get`.
-3. A winning and a losing `examples/<case>/Submission.java`, asserted in
-   `tests/e2e.sh`.
-4. Client: set `default_level`, or add a level picker to Flow.
+1. `client/levels/<id>.tres`: an Encounter.
+2. A winning and a losing GDScript student in `dev/smoke_battle.gd`.
+3. To play it: `default_level`, or a level picker in Flow.
 
-**Nothing in this list touches** `Main.java`, `Battle.java`, `Server.java`,
-`simulation.gd`, `battle_controller.gd` or `flow.gd`. If you find you need to,
-stop and rethink, or it's a genuinely new primitive.
+**New AI**
+1. `client/battle/controllers/<name>_controller.gd`: a Controller subclass.
+2. Pick it as a side's controller in a level.
+
+**Nothing in these lists touches** `battle.gd`, `simulation.gd`,
+`battle_controller.gd`, `flow.gd` or anything in `server/`. If you find you
+need to, stop and rethink, or it's a genuinely new primitive.

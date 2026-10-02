@@ -15,5 +15,5 @@ cp harness/*.java tests/HarnessTest.java "$BUILD/src/"
 mkdir -p "$BUILD/src/dsagame/api"
 cp api/dsagame/api/*.java "$BUILD/src/dsagame/api/"
 
-find "$BUILD/src" -name '*.java' -print0 | xargs -0 javac --release 17 -d "$BUILD/classes"
+find "$BUILD/src" -name '*.java' -print0 | xargs -0 javac --release 21 -d "$BUILD/classes"
 java -cp "$BUILD/classes" HarnessTest

@@ -5,9 +5,9 @@ extends Node
 ## godot --headless --path client res://dev/smoke_flow.tscn
 
 func _ready() -> void:
-	var main: BattleController = preload("res://main.tscn").instantiate()
+	var main: Node = preload("res://main.tscn").instantiate()
 	add_child(main)
-	var flow := main.flow
+	var flow := (main.get_node("%BattleController") as BattleController).flow
 	var submit: Button = flow.get_node("%Submit")
 
 	submit.pressed.emit()
@@ -17,7 +17,7 @@ func _ready() -> void:
 	if flow.state == Flow.State.REPLAYING:
 		flow.get_node("%Skip").pressed.emit()
 		var editor: TextEdit = flow.get_node("%Editor")
-		editor.text = editor.text.replace("));", "))")
+		editor.text = editor.text.replace("return", "return return")
 		submit.pressed.emit()
 		await _left_submitting(flow)
 		print("flow state: %s, error: %s" % [Flow.State.keys()[flow.state], flow.get_node("%Error").text])

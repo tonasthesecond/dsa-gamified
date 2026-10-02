@@ -86,10 +86,11 @@ Every event has `turn` and `type`. Spawns are turn 0; the first turn is 1.
 | type | extra fields | notes |
 |---|---|---|
 | `spawn` | `unit`, `name`, `team` (`hero` or `enemy`), `hp`, `maxHp` | turn 0, one per unit |
-| `intent` | `unit`, `action`, `target?`, `move` | telegraphed before the party acts |
-| `action` | `unit`, `action` (a move id), `target?`, `move` | |
-| `blocked` | `unit` (the target), `reason`, `move` | the action had no effect |
-| `damage` | `unit`, `amount`, `hp`, `move` | `hp` is after the damage |
+| `intent` | `unit`, `action`, `target?`, `targets?`, `move` | telegraphed before the party acts |
+| `action` | `unit`, `action` (a move id), `target?`, `targets?`, `move` | |
+| `blocked` | `unit` (the target), `reason`, `move` | the action had no effect on this target |
+| `damage` | `unit`, `amount`, `hp`, `absorbed?`, `move` | `hp` is after the damage; `amount` is what got past the unit's guard, `absorbed` what the guard took, only present when not 0 |
+| `guard` | `unit`, `amount`, `move` | the unit now absorbs the next `amount` damage before its next action |
 | `heal` | `unit`, `amount`, `hp`, `move` | `hp` is after the healing; `amount` is what it actually got, so it is 0 on a unit already at full health |
 | `death` | `unit` | |
 | `end` | `won`, `reason` | the last event of a scenario |
@@ -100,6 +101,9 @@ The `action` field on `action` and `intent` is the id of the move being used.
 `attack` and `pass` are the two every combatant has, so they read exactly as
 they always did; a level's own moves use their own ids, such as `heal` or
 `drain`. A move aimed at whoever is using it, like `pass`, has no `target`.
+A move with more than one target, like `cleave e1 e2`, has `target` set to
+the first and `targets` listing all of them in order; with one target there is
+no `targets`. The move's effects then run once per target, in that order.
 
 `move` is the id of the move an event came from. On `intent` and `action` it
 is the same as `action`. On `blocked`, `damage` and `heal` it names the move
@@ -121,6 +125,9 @@ Everything above is a superset of the first version of this protocol:
   spawn order within a turn.
 - `move` is a new field on `intent`, `action`, `blocked`, `damage` and `heal`.
   Everything else in those events is unchanged, and `action` keeps its value.
+- `guard` is a new event type, `absorbed` a new optional field on `damage`,
+  and `targets` a new optional field on `intent` and `action`. A battle with no
+  guard and no multi-target move logs exactly what it did before.
 
 No field has been renamed or removed.
 

@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="UnitDef" format=3]
+
+[ext_resource type="Script" path="res://battle/move.gd" id="1_707td"]
+[ext_resource type="Resource" path="res://moves/attack.tres" id="2_ndbbe"]
+[ext_resource type="Script" path="res://battle/unit_def.gd" id="3_efvlj"]
+
+[ext_resource type="Script" path="res://battle/stats.gd" id="9_stats"]
+
+[sub_resource type="Resource" id="Stats_1"]
+script = ExtResource("9_stats")
+hp = 6
+strength = 1
+magic = 0
+speed = 2
+
+[resource]
+script = ExtResource("3_efvlj")
+name = "Slime"
+stats = SubResource("Stats_1")
+moves = Array[ExtResource("1_707td")]([ExtResource("2_ndbbe")])

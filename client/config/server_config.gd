@@ -5,9 +5,12 @@ extends Resource
 
 ## Base URL of the compile service, without a trailing slash.
 @export var server_url: String = "http://localhost:8080"
-## Seconds before a submit gives up. Covers javac + TeaVM + the 5 s run.
+## Seconds the compile step may take (javac + TeaVM) before a submit gives up.
 @export var timeout_sec: float = 30.0
-## Level sent with a submit when the UI does not choose one.
+## The encounter a submit plays: res://levels/<default_level>.tres.
 @export var default_level: String = "demo"
-## Only derives the seed on the server; same student + level, same scenarios.
+## Unused since the battle moved into the client: the seed belongs to the level.
 @export var student: String = "anonymous"
+## How long the student's code may take per call, including its constructor.
+## The compile service accepts 1 to 10000.
+@export var decide_timeout_ms: int = 1000

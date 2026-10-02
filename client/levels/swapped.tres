@@ -1,0 +1,47 @@
+[gd_resource type="Resource" script_class="Encounter" format=3]
+
+[ext_resource type="Script" path="res://battle/encounter.gd" id="1_3n07r"]
+[ext_resource type="Script" path="res://battle/move.gd" id="2_rq6pm"]
+[ext_resource type="Resource" path="res://moves/pass.tres" id="3_xvygy"]
+[ext_resource type="Resource" path="res://moves/block.tres" id="9_block"]
+[ext_resource type="Script" path="res://battle/side_spec.gd" id="4_0811g"]
+[ext_resource type="Script" path="res://battle/controllers/student_controller.gd" id="5_ntu81"]
+[ext_resource type="Script" path="res://battle/unit_slot.gd" id="6_061nt"]
+[ext_resource type="Resource" path="res://units/goblin.tres" id="7_skh27"]
+[ext_resource type="Script" path="res://battle/controllers/telegraph_controller.gd" id="8_k2jic"]
+[ext_resource type="Resource" path="res://units/knight.tres" id="9_x1lre"]
+
+[sub_resource type="Resource" id="Resource_fcmer"]
+script = ExtResource("5_ntu81")
+
+[sub_resource type="Resource" id="Resource_3i8o8"]
+script = ExtResource("6_061nt")
+id = "goblin"
+unit = ExtResource("7_skh27")
+
+[sub_resource type="Resource" id="Resource_ljc8m"]
+script = ExtResource("4_0811g")
+team = "hero"
+controller = SubResource("Resource_fcmer")
+units = Array[ExtResource("6_061nt")]([SubResource("Resource_3i8o8")])
+
+[sub_resource type="Resource" id="Resource_bf14u"]
+script = ExtResource("8_k2jic")
+
+[sub_resource type="Resource" id="Resource_bn04e"]
+script = ExtResource("6_061nt")
+id = "e1"
+unit = ExtResource("9_x1lre")
+
+[sub_resource type="Resource" id="Resource_g7w38"]
+script = ExtResource("4_0811g")
+team = "enemy"
+controller = SubResource("Resource_bf14u")
+units = Array[ExtResource("6_061nt")]([SubResource("Resource_bn04e")])
+
+[resource]
+resource_name = "TEST ONLY. A Goblin in the party against a Knight: units do not care which side they are on."
+script = ExtResource("1_3n07r")
+rng_seed = 1
+shared_moves = Array[ExtResource("2_rq6pm")]([ExtResource("3_xvygy"), ExtResource("9_block")])
+sides = Array[ExtResource("4_0811g")]([SubResource("Resource_ljc8m"), SubResource("Resource_g7w38")])

@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="Move" format=3]
+
+[ext_resource type="Script" path="res://battle/effects/effect.gd" id="1_eff"]
+[ext_resource type="Script" path="res://battle/effects/guard_effect.gd" id="2_grd"]
+[ext_resource type="Script" path="res://battle/move.gd" id="3_mov"]
+
+[sub_resource type="Resource" id="Resource_guard"]
+script = ExtResource("2_grd")
+
+[resource]
+script = ExtResource("3_mov")
+id = "block"
+name = "Block"
+description = "Guard yourself: absorb damage up to 100% of your strength until your next turn."
+target = 2
+effects = Array[ExtResource("1_eff")]([SubResource("Resource_guard")])

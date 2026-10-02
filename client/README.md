@@ -83,10 +83,11 @@ came from.
 | `type` | extra fields | Simulation signal |
 |---|---|---|
 | `spawn` | `unit`, `name`, `team` (`hero`/`enemy`), `hp`, `maxHp` | `spawned(event)` |
-| `intent` | `unit`, `action` (move id), `target?`, `move` (same as `action`) | `intent(event)` |
-| `action` | `unit`, `action` (move id), `target?`, `move` (same as `action`) | `action(event)` |
+| `intent` | `unit`, `action` (move id), `target?`, `targets?` (more than one), `move` (same as `action`) | `intent(event)` |
+| `action` | `unit`, `action` (move id), `target?`, `targets?` (more than one), `move` (same as `action`) | `action(event)` |
 | `blocked` | `unit` (the target), `reason`, `move` | `effect_applied(event)` |
-| `damage` | `unit`, `amount`, `hp` (after), `move` | `effect_applied(event)` |
+| `damage` | `unit`, `amount`, `hp` (after), `absorbed?` (by a guard), `move` | `effect_applied(event)` |
+| `guard` | `unit`, `amount` (the guard it now has), `move` | `effect_applied(event)` |
 | `heal` | `unit`, `amount`, `hp` (after), `move` | `effect_applied(event)` |
 | `death` | `unit` | `died(event)` |
 | `end` | `won`, `reason` | `ended(won, reason)` |

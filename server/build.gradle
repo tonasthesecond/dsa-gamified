@@ -5,7 +5,7 @@ plugins {
 }
 repositories { mavenCentral() }
 dependencies {
-    implementation 'org.teavm:teavm-tooling:0.11.0'
-    implementation 'org.teavm:teavm-classlib:0.11.0'
+    implementation 'org.teavm:teavm-tooling:0.13.0'
+    implementation 'org.teavm:teavm-classlib:0.13.0'
 }
 application { mainClass = 'compileservice.Server' }

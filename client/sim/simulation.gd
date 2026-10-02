@@ -1,19 +1,20 @@
 class_name Simulation
 extends Node
-## Replays one envelope from the compile service, one event at a time.
+## Replays one battle's envelope, one event at a time.
 ##
 ## State is derived only from the events up to the cursor: no timers, no tweens,
 ## no references to other nodes. Everything leaves through signals, so whatever
 ## listens (Presentation today) can be replaced without touching this file.
 ## The event format is server/docs/protocol.md.
 
-## The envelope had status "ok"; scenario 0 is selected and reset.
-signal battle_loaded(scenario_count: int)
+## The envelope had status "ok"; the battle is loaded and reset.
+signal battle_loaded
+
 ## The envelope never became a battle: compile error, timeout, bad request.
 ## `line` is the Submission.java line the compiler pointed at, or -1.
 signal submission_failed(message: String, line: int)
-## The cursor went back to 0 on scenario `index`; listeners clear their state.
-signal scenario_reset(index: int)
+## The cursor went back to 0; listeners clear their state.
+signal battle_reset
 
 # Battle structure: one signal per event `type`, each carrying the raw event.
 # `intent` and `action` events carry `move`, the id of the move coming or used.
@@ -35,8 +36,7 @@ signal unknown_event(event: Dictionary)
 const _COMPILER_LINE := "Submission\\.java:(\\d+):"
 
 var envelope: Dictionary = {}
-var scenario_index: int = -1
-## Number of events applied so far in the current scenario.
+## Number of events applied so far.
 var cursor: int = 0
 ## `turn` of the last applied event; 0 during spawns.
 var turn: int = 0
@@ -48,7 +48,6 @@ var _unit_order: Array[String] = []
 
 func load_battle(new_envelope: Dictionary) -> void:
 	envelope = _whole_numbers_to_int(new_envelope)
-	scenario_index = -1
 	_events = []
 	_clear_state()
 	if envelope.get("status") != "ok":
@@ -56,21 +55,15 @@ func load_battle(new_envelope: Dictionary) -> void:
 		submission_failed.emit(message, _compiler_line(message))
 		return
 	var result: Variant = envelope.get("result")
-	if not result is Dictionary or not result.get("scenarios") is Array or result.scenarios.is_empty():
-		submission_failed.emit("server sent status ok without any scenarios", -1)
+	if not result is Dictionary or not result.get("events") is Array:
+		submission_failed.emit("status ok without a battle", -1)
 		return
-	battle_loaded.emit(scenario_count())
-	select_scenario(0)
-
-
-func select_scenario(index: int) -> void:
-	assert(index >= 0 and index < scenario_count(), "no scenario %d" % index)
-	scenario_index = index
-	_events = current_scenario().events
+	_events = result.events
+	battle_loaded.emit()
 	reset()
 
 
-## Applies the next event and emits its signal. False once the scenario is over.
+## Applies the next event and emits its signal. False once the battle is over.
 func step() -> bool:
 	if is_finished():
 		return false
@@ -111,21 +104,17 @@ func skip_to_end() -> void:
 
 func reset() -> void:
 	_clear_state()
-	scenario_reset.emit(scenario_index)
+	battle_reset.emit()
 
 
 func is_finished() -> bool:
 	return cursor >= _events.size()
 
 
-func scenario_count() -> int:
+## The battle as sent: {won, reason, error, events}; empty if none is loaded.
+func battle() -> Dictionary:
 	var result: Variant = envelope.get("result")
-	return result.scenarios.size() if result is Dictionary else 0
-
-
-## The current scenario as sent: {seed, won, reason, error, events}.
-func current_scenario() -> Dictionary:
-	return envelope.result.scenarios[scenario_index] if scenario_index >= 0 else {}
+	return result if result is Dictionary else {}
 
 
 ## Unit ids in spawn order, as far as the cursor has got.

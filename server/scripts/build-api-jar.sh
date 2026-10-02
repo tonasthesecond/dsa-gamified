@@ -10,7 +10,7 @@ JAR=dsagame-api.jar
 rm -rf "$OUT_DIR"
 mkdir -p "$OUT_DIR"
 
-find api -name '*.java' -print0 | xargs -0 javac --release 17 -d "$OUT_DIR"
+find api -name '*.java' -print0 | xargs -0 javac --release 21 -d "$OUT_DIR"
 jar cf "$JAR" -C "$OUT_DIR" .
 
 echo "built $JAR"

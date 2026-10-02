@@ -3,7 +3,7 @@ extends Node
 ## signal plus the final unit state. No server needed.
 ## godot --headless --path client res://dev/smoke_simulation.tscn
 
-const FIXTURES := ["res://dev/fixtures/demo_win.json", "res://dev/fixtures/compile_error.json"]
+const FIXTURES := ["res://dev/fixtures/demo.json", "res://dev/fixtures/compile_error.json"]
 
 @onready var sim: Simulation = $Simulation
 
