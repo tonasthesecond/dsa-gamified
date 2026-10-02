@@ -17,7 +17,7 @@ import java.io.ByteArrayOutputStream;
 /**
  * Runs student code for the Godot client and knows nothing about the game:
  * /build compiles a Submission, /start makes a fresh one, /decide hands it a
- * state and returns its command, /close throws the build away. See docs/runner.md.
+ * state and returns its command, /close throws the build away. See ../docs/runner.md.
  */
 public class Server {
     private static final int MAX_BODY_BYTES = 50_000;

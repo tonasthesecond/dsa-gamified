@@ -1,7 +1,7 @@
 # server
 
 Compiles a student's `Submission.java` and runs its `decide` for the Godot
-client. Knows nothing about the game. Contract: `docs/runner.md`.
+client. Knows nothing about the game. Contract: `../docs/runner.md`.
 
 Needs JDK 17 and `node`. Run everything from this directory.
 
