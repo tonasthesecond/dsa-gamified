@@ -1,7 +1,5 @@
 extends Node2D
-## The rig: a top-down overworld with a player and level zones, and the battle
-## screen on a layer above it. A zone is any Area2D under Overworld with a
-## `level` metadata entry; walking into it opens that level's battle.
+## Overworld rig: walking into an Area2D with `level` metadata opens that battle.
 
 const SPEED := 220.0
 

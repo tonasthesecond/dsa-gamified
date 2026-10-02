@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="UnitDef" format=3 uid="uid://bjkgfdd4jncro"]
+
+[ext_resource type="Script" uid="uid://nf6up3ajr3lb" path="res://resources/move.gd" id="1_4i781"]
+[ext_resource type="Resource" uid="uid://cijeutcpe701a" path="res://data/moves/attack.tres" id="2_x775n"]
+[ext_resource type="Resource" uid="uid://c4a214itabo4t" path="res://data/moves/smite.tres" id="3_ui8uw"]
+[ext_resource type="Resource" path="res://data/moves/cleave.tres" id="4_clv"]
+[ext_resource type="Script" uid="uid://c28dmji3au3gp" path="res://resources/unit_def.gd" id="4_np0l4"]
+
+[ext_resource type="Script" path="res://resources/stats.gd" id="9_stats"]
+
+[sub_resource type="Resource" id="Stats_1"]
+script = ExtResource("9_stats")
+hp = 34
+strength = 6
+magic = 0
+speed = 4
+
+[resource]
+script = ExtResource("4_np0l4")
+name = "Knight"
+stats = SubResource("Stats_1")
+moves = Array[ExtResource("1_4i781")]([ExtResource("2_x775n"), ExtResource("3_ui8uw"), ExtResource("4_clv")])

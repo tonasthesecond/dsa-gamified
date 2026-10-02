@@ -16,6 +16,5 @@ config/features=PackedStringArray("4.7")
 
 [autoload]
 
-Config="*res://autoload/config.gd"
-SubmitClient="*res://autoload/submit_client.gd"
-Content="*res://autoload/content.gd"
+Config="*res://globals/config.gd"
+SubmitClient="*res://globals/submit_client.gd"

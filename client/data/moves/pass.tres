@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="Move" format=3]
+
+[ext_resource type="Script" path="res://resources/effects/effect.gd" id="1_cjnr4"]
+[ext_resource type="Script" path="res://resources/move.gd" id="2_a5isb"]
+
+[resource]
+script = ExtResource("2_a5isb")
+id = "pass"
+name = "Pass"
+description = "Do nothing this turn."
+target = 2

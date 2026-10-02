@@ -1,0 +1,48 @@
+[gd_resource type="Resource" script_class="Encounter" format=3]
+
+[ext_resource type="Script" path="res://resources/encounter.gd" id="1_kmtqe"]
+[ext_resource type="Script" path="res://resources/move.gd" id="2_16oqg"]
+[ext_resource type="Resource" path="res://data/moves/pass.tres" id="3_jin3q"]
+[ext_resource type="Resource" path="res://data/moves/block.tres" id="9_block"]
+[ext_resource type="Script" path="res://resources/side_spec.gd" id="4_figgt"]
+[ext_resource type="Script" path="res://resources/controllers/student_controller.gd" id="5_43g2q"]
+[ext_resource type="Script" path="res://resources/unit_slot.gd" id="6_0sbjn"]
+[ext_resource type="Resource" path="res://data/units/hero.tres" id="7_nplrw"]
+[ext_resource type="Script" path="res://resources/controllers/telegraph_controller.gd" id="8_1nt6b"]
+[ext_resource type="Resource" path="res://data/units/slime.tres" id="9_mvn6u"]
+
+[sub_resource type="Resource" id="Resource_g28ec"]
+script = ExtResource("5_43g2q")
+
+[sub_resource type="Resource" id="Resource_aanya"]
+script = ExtResource("6_0sbjn")
+id = "hero"
+unit = ExtResource("7_nplrw")
+
+[sub_resource type="Resource" id="Resource_3uris"]
+script = ExtResource("4_figgt")
+team = "hero"
+controller = SubResource("Resource_g28ec")
+units = Array[ExtResource("6_0sbjn")]([SubResource("Resource_aanya")])
+
+[sub_resource type="Resource" id="Resource_lbw4h"]
+script = ExtResource("8_1nt6b")
+
+[sub_resource type="Resource" id="Resource_hlpwa"]
+script = ExtResource("6_0sbjn")
+id = "e1"
+unit = ExtResource("9_mvn6u")
+
+[sub_resource type="Resource" id="Resource_h4f3e"]
+script = ExtResource("4_figgt")
+team = "enemy"
+controller = SubResource("Resource_lbw4h")
+units = Array[ExtResource("6_0sbjn")]([SubResource("Resource_hlpwa")])
+
+[resource]
+resource_name = "TEST ONLY. Any attack wins on turn 1; passing loses on the turn limit."
+script = ExtResource("1_kmtqe")
+rng_seed = 1
+max_turns = 5
+shared_moves = Array[ExtResource("2_16oqg")]([ExtResource("3_jin3q"), ExtResource("9_block")])
+sides = Array[ExtResource("4_figgt")]([SubResource("Resource_3uris"), SubResource("Resource_h4f3e")])
