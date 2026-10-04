@@ -46,7 +46,7 @@ Other checks: `smoke_replay`, `smoke_battle_display`, `smoke_submit`.
 - **Moves are data**: a `Move` is a list of `Effect`s; effects scale off a
   user `Stats` stat by `percent` and change the battle only through `Battle`'s
   primitives (`deal_damage`, `heal`, `block`, `guard`), which log the events.
-- **Controllers** decide for a side: `TelegraphAI` and
+- **Controllers** decide for a side: `TelegraphController` (AI),
   `StudentController` (parses the command string). No `if enemy` anywhere.
 - **Commands**: students return `"move id id"`; `Battle.use_error` is the one
   legality check, `Battle.turn_order` (speed) the one turn order.

@@ -5,5 +5,5 @@ extends Resource
 ## Shown to the student and in the log.
 @export var name: String = ""
 @export var stats: Stats
-## TelegraphAI uses the first.
+## TelegraphController uses the first.
 @export var moves: Array[Move] = []

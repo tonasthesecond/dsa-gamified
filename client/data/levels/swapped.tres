@@ -8,7 +8,7 @@
 [ext_resource type="Script" path="res://resources/controllers/student_controller.gd" id="5_ntu81"]
 [ext_resource type="Script" path="res://resources/level_unit.gd" id="6_061nt"]
 [ext_resource type="Resource" path="res://data/units/goblin.tres" id="7_skh27"]
-[ext_resource type="Script" path="res://resources/controllers/telegraph_ai.gd" id="8_k2jic"]
+[ext_resource type="Script" path="res://resources/controllers/telegraph_controller.gd" id="8_k2jic"]
 [ext_resource type="Resource" path="res://data/units/knight.tres" id="9_x1lre"]
 
 [sub_resource type="Resource" id="Resource_fcmer"]

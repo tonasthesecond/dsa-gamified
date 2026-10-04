@@ -9,7 +9,7 @@
 [ext_resource type="Script" path="res://resources/level_unit.gd" id="6_n1sqn"]
 [ext_resource type="Resource" path="res://data/units/knight.tres" id="7_tiwc4"]
 [ext_resource type="Resource" path="res://data/units/cleric.tres" id="8_ydd3s"]
-[ext_resource type="Script" path="res://resources/controllers/telegraph_ai.gd" id="9_crlh6"]
+[ext_resource type="Script" path="res://resources/controllers/telegraph_controller.gd" id="9_crlh6"]
 [ext_resource type="Resource" path="res://data/units/goblin.tres" id="10_odgcm"]
 [ext_resource type="Resource" path="res://data/units/wraith.tres" id="11_rumr6"]
 

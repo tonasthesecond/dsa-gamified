@@ -79,7 +79,7 @@ client/
   globals/           autoloads: Config, BattleRunner
   resources/         Resource classes: Stats, UnitDef, Move, Level, LevelSide, LevelUnit, ServerConfig
     effects/         Effect and its subclasses, MoveContext
-    controllers/     Controller, TelegraphAI, StudentController
+    controllers/     Controller, TelegraphController, StudentController
   systems/
     battle/          the battle: Battle, BattleLog, BattleSide, BattleResult, Combatant; no nodes, no network
     student_code/    StudentCode: how StudentController reaches student code, on the server or in GDScript for tests
@@ -130,7 +130,7 @@ Rules that are data (moves, units, levels, AIs) are Resources in
 | **Stats** | `resources/stats.gd` | A Resource: `hp`, `strength`, `magic`, `speed`. `scaled(stat, percent)` is how every effect turns a stat into a number. |
 | **UnitDef** | `resources/unit_def.gd` | A Resource: what a kind of unit is. `name`, `stats`, `moves`. Nothing about sides or who controls it. |
 | **Controller** | `resources/controllers/controller.gd` | Picks the actions of one side's units. The battle assigns it to a side. |
-| **TelegraphAI** | `resources/controllers/telegraph_ai.gd` | The plain AI: telegraphs its first move at the first living opponent, then does it. |
+| **TelegraphController** | `resources/controllers/telegraph_controller.gd` | The plain AI: telegraphs its first move at the first living opponent, then does it. |
 | **StudentController** | `resources/controllers/student_controller.gd` | Asks the student's code, through the `StudentCode` in the battle's context. Turns every runner error into a message for the player. |
 | **Combatant** | `systems/battle/combatant.gd` | One unit in one battle: id, side, its own copy of the stats, hp, guard, moves, this turn's intent. The only thing that changes during a fight. Its `unit` is the shared UnitDef. |
 | **BattleSide** | `systems/battle/battle_side.gd` | A side: a `team` label for the log, a controller, its combatants. |
@@ -146,7 +146,7 @@ Rules that are data (moves, units, levels, AIs) are Resources in
    a constructor that throws ends the battle on turn 1.
 3. Each turn:
    1. Every living unit's controller may `plan` an intent. The
-      TelegraphAI does; the student's does not. Intents are logged and
+      TelegraphController does; the student's does not. Intents are logged and
       every later state shows them.
    2. Everyone acts in `turn_order()`: the living, **fastest first**; equal
       speed goes by side order, then position on the side. Anyone who died
@@ -265,7 +265,7 @@ them per combatant, so a future buff can change `combatant.stats` freely.
 
 There is no hero or monster: the same UnitDef can be on the party's side in one
 level and the enemy's in the next (`data/levels/swapped.tres` does exactly that).
-Order matters only to an AI that cares: the TelegraphAI always uses the
+Order matters only to an AI that cares: the TelegraphController always uses the
 **first** move.
 
 ### 2.6 Adding a level
@@ -278,7 +278,7 @@ A `.tres` in `client/data/levels/`: New → Resource → **Level**.
 | `max_turns` | turn limit before it's a loss (default 20) |
 | `player_side` | the index of the side whose win or loss is reported (default 0) |
 | `shared_moves` | moves every unit gets; put `data/moves/pass.tres` and `block.tres` here |
-| `sides` | in side order, which breaks speed ties. Each a **LevelSide**: `team` (a label for the log, `hero` or `enemy`), `controller` (New StudentController, New TelegraphAI, or your own), `units` |
+| `sides` | in side order, which breaks speed ties. Each a **LevelSide**: `team` (a label for the log, `hero` or `enemy`), `controller` (New StudentController, New TelegraphController, or your own), `units` |
 | `units` | each a **LevelUnit**: `id` (unique in the battle, like `e1`), `unit` (a UnitDef), `bonus_max_hp` (up to this much extra max hp, rolled from the seed) |
 
 The level's id is its file name: `BattleRunner.submit(source, "example")` plays
@@ -288,13 +288,13 @@ opens before any zone sets one.
 
 ### 2.7 Adding an AI
 
-Subclass `Controller`, or `TelegraphAI` to keep "telegraph, then do
+Subclass `Controller`, or `TelegraphController` to keep "telegraph, then do
 it", and override what differs. Example, an AI that goes for the weakest
 opponent:
 
 ```gdscript
-class_name WeakestFirstAI
-extends TelegraphAI
+class_name WeakestFirstController
+extends TelegraphController
 ## Telegraphs its first move at the living opponent with the least hp.
 
 
@@ -339,7 +339,7 @@ var rng := RandomNumberGenerator.new()
 rng.seed = run_state.seed + run_state.floor
 var battle := Battle.new(
 	[BattleSide.new("hero", StudentController.new(), party),
-	 BattleSide.new("enemy", TelegraphAI.new(), foes)] as Array[BattleSide],
+	 BattleSide.new("enemy", TelegraphController.new(), foes)] as Array[BattleSide],
 	0, 20, rng, {StudentController.CONTEXT_KEY: client})
 var result := battle.run()
 # result.won, result.events; read hp back off `party` for the next fight.
@@ -602,7 +602,7 @@ event (2.9), a row in `docs/events.md`, and a branch in BattleDisplay.
 3. A winning and a losing GDScript student in `tests/smoke_battle.gd`.
 
 **New AI**
-1. `client/resources/controllers/<name>_ai.gd`: a Controller subclass.
+1. `client/resources/controllers/<name>_controller.gd`: a Controller subclass.
 2. Pick it as a side's controller in a level.
 
 **Nothing in these lists touches** `battle.gd`, `replay_system.gd`,
