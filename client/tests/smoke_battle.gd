@@ -21,7 +21,7 @@ func _pipeline_recordings() -> void:
 	for level: String in ["smoke", "demo"]:
 		var path := "res://tests/fixtures/%s.json" % level
 		if not FileAccess.file_exists(path):
-			print("skipped: %s is not recorded; see dev/smoke_submit.gd" % path)
+			print("skipped: %s is not recorded; see tests/smoke_submit.gd" % path)
 			continue
 		var recorded: Dictionary = Simulation._whole_numbers_to_int(
 			JSON.parse_string(FileAccess.get_file_as_string(path)))
