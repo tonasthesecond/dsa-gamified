@@ -13,7 +13,7 @@ var player_side: int
 var max_turns: int
 ## The only source of randomness.
 var rng: RandomNumberGenerator
-## For the controllers, such as the StrategyClient under "strategy".
+## For the controllers, such as the StudentCode under "student_code".
 var context: Dictionary
 var turn: int = 0
 var battle_log := BattleLog.new()
@@ -195,11 +195,11 @@ func state_for(unit: Combatant) -> Dictionary:
 func use(move: Move, user: Combatant, targets: Array[Combatant]) -> void:
 	_resolving = move
 	for target in targets:
-		var scratch := MoveScratch.new()
+		var move_context := MoveContext.new()
 		for effect in move.effects:
-			if scratch.halted:
+			if move_context.halted:
 				break
-			effect.apply(self, user, target, scratch)
+			effect.apply(self, user, target, move_context)
 	_resolving = null
 
 

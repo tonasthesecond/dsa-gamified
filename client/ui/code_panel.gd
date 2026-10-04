@@ -1,4 +1,4 @@
-class_name Flow
+class_name CodePanel
 extends Control
 ## The code editor and replay buttons; emits what the player did and nothing else.
 

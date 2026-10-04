@@ -1,4 +1,4 @@
-class_name RunnerConnection
+class_name ServerConnection
 extends RefCounted
 ## Blocking HTTP to the compile service, for worker threads (~2 ms a call vs ~35 ms with HTTPRequest).
 

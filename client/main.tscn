@@ -1,9 +1,9 @@
 [gd_scene format=3 uid="uid://dtbf3vfq8p5ir"]
 
-[ext_resource type="Script" uid="uid://wps7wpwkcoro" path="res://systems/battle_controller.gd" id="1"]
-[ext_resource type="Script" uid="uid://daaotw8cp2yuj" path="res://systems/simulation.gd" id="2"]
-[ext_resource type="Script" path="res://ui/presentation.gd" id="3"]
-[ext_resource type="PackedScene" uid="uid://tkt2547dbj1f" path="res://ui/flow.tscn" id="4"]
+[ext_resource type="Script" uid="uid://wps7wpwkcoro" path="res://ui/battle_screen.gd" id="1"]
+[ext_resource type="Script" uid="uid://daaotw8cp2yuj" path="res://systems/replay_system.gd" id="2"]
+[ext_resource type="Script" path="res://ui/battle_display.gd" id="3"]
+[ext_resource type="PackedScene" uid="uid://tkt2547dbj1f" path="res://ui/code_panel.tscn" id="4"]
 [ext_resource type="Script" uid="uid://dtc17bmeg8u80" path="res://main.gd" id="main"]
 
 [sub_resource type="RectangleShape2D" id="player_shape"]
@@ -91,7 +91,7 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.1, 0.1, 0.13, 1)
 
-[node name="BattleController" type="Control" parent="BattleLayer" unique_id=302041875]
+[node name="BattleScreen" type="Control" parent="BattleLayer" unique_id=302041875]
 unique_name_in_owner = true
 layout_mode = 3
 anchors_preset = 15
@@ -102,21 +102,21 @@ grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("1")
 
-[node name="Simulation" type="Node" parent="BattleLayer/BattleController" unique_id=1728871074]
+[node name="ReplaySystem" type="Node" parent="BattleLayer/BattleScreen" unique_id=1728871074]
 script = ExtResource("2")
 
-[node name="Presentation" type="Node" parent="BattleLayer/BattleController" unique_id=1335447693 node_paths=PackedStringArray("stage")]
+[node name="BattleDisplay" type="Node" parent="BattleLayer/BattleScreen" unique_id=1335447693 node_paths=PackedStringArray("stage")]
 script = ExtResource("3")
 stage = NodePath("../Stage")
 
-[node name="Stage" type="Control" parent="BattleLayer/BattleController" unique_id=583139937]
+[node name="Stage" type="Control" parent="BattleLayer/BattleScreen" unique_id=583139937]
 layout_mode = 3
 anchor_right = 1.0
 anchor_bottom = 0.55
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="Columns" type="HBoxContainer" parent="BattleLayer/BattleController/Stage" unique_id=1014186212]
+[node name="Columns" type="HBoxContainer" parent="BattleLayer/BattleScreen/Stage" unique_id=1014186212]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -128,21 +128,21 @@ offset_bottom = -16.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="HeroColumn" type="VBoxContainer" parent="BattleLayer/BattleController/Stage/Columns" unique_id=1457177441]
+[node name="HeroColumn" type="VBoxContainer" parent="BattleLayer/BattleScreen/Stage/Columns" unique_id=1457177441]
 unique_name_in_owner = true
 layout_mode = 2
 alignment = 1
 
-[node name="Spacer" type="Control" parent="BattleLayer/BattleController/Stage/Columns" unique_id=888918755]
+[node name="Spacer" type="Control" parent="BattleLayer/BattleScreen/Stage/Columns" unique_id=888918755]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="EnemyColumn" type="VBoxContainer" parent="BattleLayer/BattleController/Stage/Columns" unique_id=1152245441]
+[node name="EnemyColumn" type="VBoxContainer" parent="BattleLayer/BattleScreen/Stage/Columns" unique_id=1152245441]
 unique_name_in_owner = true
 layout_mode = 2
 alignment = 1
 
-[node name="Banner" type="Label" parent="BattleLayer/BattleController/Stage" unique_id=857027923]
+[node name="Banner" type="Label" parent="BattleLayer/BattleScreen/Stage" unique_id=857027923]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 10
@@ -152,6 +152,6 @@ offset_bottom = 31.0
 grow_horizontal = 2
 horizontal_alignment = 1
 
-[node name="Flow" parent="BattleLayer/BattleController" unique_id=716229672 instance=ExtResource("4")]
+[node name="CodePanel" parent="BattleLayer/BattleScreen" unique_id=716229672 instance=ExtResource("4")]
 anchors_preset = -1
 anchor_top = 0.55

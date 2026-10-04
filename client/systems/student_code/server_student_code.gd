@@ -1,17 +1,17 @@
-class_name HttpStrategyClient
-extends StrategyClient
+class_name ServerStudentCode
+extends StudentCode
 ## The student's code on the compile service: /start per battle, /decide per call.
 
 ## Added to the per-call timeout for the round trip.
 const SLACK_MS := 5000
 
-var _connection: RunnerConnection
+var _connection: ServerConnection
 var _build: String
 var _timeout_ms: int
 var _instance: String = ""
 
 
-func _init(connection: RunnerConnection, build: String, timeout_ms: int) -> void:
+func _init(connection: ServerConnection, build: String, timeout_ms: int) -> void:
 	_connection = connection
 	_build = build
 	_timeout_ms = timeout_ms

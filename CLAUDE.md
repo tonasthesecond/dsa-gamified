@@ -14,21 +14,24 @@
 cd server && ./gradlew run                     # serve on :8080
 cd server && tests/e2e.sh                      # Java suite (own server on :8080)
 godot --headless --path client res://tests/smoke_battle.tscn   # rules, no server
-godot --headless --path client res://tests/smoke_flow.tscn     # whole client, needs server
+godot --headless --path client res://tests/smoke_game.tscn     # whole client, needs server
 godot --headless --path client res://tests/smoke_submit.tscn -- --record   # re-record fixtures
 ```
-Other checks: `smoke_simulation`, `smoke_presentation`, `smoke_submit`.
+Other checks: `smoke_replay`, `smoke_battle_display`, `smoke_submit`.
 
 ## Architecture
-- **Flow**: zone in `main.tscn` → `BattleController.open(level)` → Submit →
-  `SubmitClient` (`/build`, then `Battle.run()` on a worker thread, `/decide`
-  per student unit per turn) → envelope → `Simulation` → `Presentation`.
-- `client/globals/`: autoloads `Config`, `SubmitClient`.
+- **One battle**: zone in `main.tscn` → `BattleScreen.open(level)` → Submit in
+  `CodePanel` → `BattleRunner` (`/build`, then `Battle.run()` on a worker
+  thread, `/decide` per student unit per turn) → envelope → `ReplaySystem` →
+  `BattleDisplay`.
+- `client/globals/`: autoloads `Config`, `BattleRunner`.
 - `client/resources/`: Resource classes — `Stats`, `UnitDef`, `Move`,
-  `Encounter`, `SideSpec`, `UnitSlot`, `effects/`, `controllers/`.
-- `client/systems/`: `battle/` (Battle, BattleLog, Combatant...), `strategy/`
-  (HTTP and scripted student clients), `Simulation`, `BattleController`.
-- `client/ui/`: `Flow` (editor, buttons), `Presentation` (ColorRect stage).
+  `Level`, `LevelSide`, `LevelUnit`, `effects/`, `controllers/`.
+- `client/systems/`: `battle/` (Battle, BattleLog, Combatant...),
+  `student_code/` (`StudentCode` on the server or scripted for tests),
+  `ReplaySystem`.
+- `client/ui/`: `BattleScreen` (wires a battle together), `CodePanel` (editor,
+  buttons), `BattleDisplay` (ColorRect stage).
 - `client/data/`: `moves/`, `units/`, `levels/` .tres, `server_config.tres`.
 - `server/`: `src/` the service, `runner/` runs inside TeaVM, `api/` the
   `Strategy` interface, `examples/` one case each for `e2e.sh`.
@@ -43,7 +46,7 @@ Other checks: `smoke_simulation`, `smoke_presentation`, `smoke_submit`.
 - **Moves are data**: a `Move` is a list of `Effect`s; effects scale off a
   user `Stats` stat by `percent` and change the battle only through `Battle`'s
   primitives (`deal_damage`, `heal`, `block`, `guard`), which log the events.
-- **Controllers** decide for a side: `TelegraphController` (AI),
+- **Controllers** decide for a side: `TelegraphAI` and
   `StudentController` (parses the command string). No `if enemy` anywhere.
 - **Commands**: students return `"move id id"`; `Battle.use_error` is the one
   legality check, `Battle.turn_order` (speed) the one turn order.
@@ -54,7 +57,7 @@ Other checks: `smoke_simulation`, `smoke_presentation`, `smoke_submit`.
 - New mechanic: an `Effect` subclass in `resources/effects/`; a new primitive
   on `Battle` only if damage/heal/block/guard can't express it.
 - New unit: `data/units/<name>.tres` with a `Stats`.
-- New level: `data/levels/<id>.tres` (Encounter) + an Area2D zone in
+- New level: `data/levels/<id>.tres` (a Level) + an Area2D zone in
   `main.tscn` with `level` metadata + a winning and losing student in
   `tests/smoke_battle.gd`.
 - New AI: a `Controller` subclass in `resources/controllers/`.

@@ -1,4 +1,4 @@
-class_name Simulation
+class_name ReplaySystem
 extends Node
 ## Replays a battle's envelope one event at a time, out through signals.
 
@@ -27,7 +27,7 @@ var _units: Dictionary = {}  # unit id -> {name, team, hp, max_hp, alive}
 var _unit_order: Array[String] = []
 
 
-## Loads an envelope from SubmitClient and resets to the start.
+## Loads an envelope from BattleRunner and resets to the start.
 func load_battle(new_envelope: Dictionary) -> void:
 	envelope = _whole_numbers_to_int(new_envelope)
 	_events = []

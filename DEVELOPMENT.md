@@ -20,21 +20,21 @@ This file is the map. Start here.
 ```
  ┌──────────────────────── Godot client (client/) ───────────────────────┐          ┌─── Java server (server/) ───┐
  │                                                                       │          │                             │
- │  Flow (UI) ──submit_pressed──► SubmitClient                           │          │                             │
- │                                  │  1. POST /build (source) ─────────┼──────────┼─► javac + TeaVM             │
+ │  CodePanel (UI) ──submit_pressed──► BattleRunner                      │          │                             │
+ │                                  │  1. POST /build (source) ──────────┼──────────┼─► javac + TeaVM             │
  │                                  │                                    │          │                             │
  │                                  ▼  on a worker thread                │          │                             │
  │                            Battle.run()  ── every rule lives here     │          │                             │
- │                                  │  2. POST /start ──────────────────┼──────────┼─► node, new Submission()    │
- │                                  │  3. POST /decide (state) ─────────┼──────────┼─► decide(state) → action    │
- │                                  │     ... once per student unit     │          │                             │
- │                                  │         per turn ...              │          │                             │
- │                                  │  4. POST /close ──────────────────┼──────────┼─► process and build gone    │
+ │                                  │  2. POST /start ───────────────────┼──────────┼─► node, new Submission()    │
+ │                                  │  3. POST /decide (state) ──────────┼──────────┼─► decide(state) → action    │
+ │                                  │     ... once per student unit      │          │                             │
+ │                                  │         per turn ...               │          │                             │
+ │                                  │  4. POST /close ───────────────────┼──────────┼─► process and build gone    │
  │                                  ▼                                    │          │                             │
- │  Simulation ◄──result_ready(envelope)── the finished event log        │          └─────────────────────────────┘
- │     │  one signal per event, on Step                                 │
+ │  ReplaySystem ◄──result_ready(envelope)── the finished event log      │          └─────────────────────────────┘
+ │     │  one signal per event, on Step                                  │
  │     ▼                                                                 │
- │  Presentation  (draws it: today, print calls)                         │
+ │  BattleDisplay  (draws it: today, print calls)                        │
  └───────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -43,7 +43,7 @@ Every rule (units, moves, damage, turn order, enemy AI, win/loss, the seed)
 is in Godot. When one of the student's units has to act, Godot sends the
 current state to Java, Java runs the student's `decide`, and the action comes
 back. Nothing is shown until the battle is over; then the finished log goes to
-Simulation and Presentation, which replay it one event at a time.
+ReplaySystem and BattleDisplay, which replay it one event at a time.
 
 Java knows nothing about the game. It compiles `Submission.java`, and then
 passes a Map in and a Map out. The test for that: Java could host a completely
@@ -52,15 +52,15 @@ different game without a code change.
 So:
 
 - A new **rule, move, unit, level or AI** is Godot work, and usually just data.
-- A new **visual** is Godot work in Presentation.
+- A new **visual** is Godot work in BattleDisplay.
 - Java changes only if the way student code is compiled or run changes.
 
 ### 1.1 One battle, start to finish
 
-1. Player clicks **Submit**. `SubmitClient` POSTs the source to `/build`. A
+1. Player clicks **Submit**. `BattleRunner` POSTs the source to `/build`. A
    compile error comes back as `status: compile_error` and never becomes a
    battle.
-2. `SubmitClient` loads the level (an `Encounter`), builds a `Battle` from it
+2. `BattleRunner` loads the level (a `Level`), builds a `Battle` from it
    and runs it on a worker thread.
 3. The battle calls `/start` once (a fresh `Submission`), then `/decide` once
    per student unit per turn, until someone wins or the turn limit hits.
@@ -76,16 +76,16 @@ Folders are by role: what a file *is*, not which feature it belongs to.
 
 ```
 client/
-  globals/           autoloads: Config, SubmitClient
-  resources/         Resource classes: Stats, UnitDef, Move, Encounter, SideSpec, UnitSlot, ServerConfig
-    effects/         Effect and its subclasses, MoveScratch
-    controllers/     Controller, TelegraphController, StudentController
+  globals/           autoloads: Config, BattleRunner
+  resources/         Resource classes: Stats, UnitDef, Move, Level, LevelSide, LevelUnit, ServerConfig
+    effects/         Effect and its subclasses, MoveContext
+    controllers/     Controller, TelegraphAI, StudentController
   systems/
     battle/          the battle: Battle, BattleLog, BattleSide, BattleResult, Combatant; no nodes, no network
-    strategy/        how StudentController reaches student code: HTTP, or GDScript for tests
-    simulation.gd    the replay
-    battle_controller.gd   wires a battle screen together
-  ui/                Flow (editor, buttons), Presentation (draws the stage)
+    student_code/    StudentCode: how StudentController reaches student code, on the server or in GDScript for tests
+    replay_system.gd ReplaySystem: steps through a finished battle log
+  ui/                BattleScreen (wires a battle together), CodePanel (editor, buttons),
+                     BattleDisplay (draws the stage)
   data/              .tres: moves/, units/, levels/, server_config.tres
   tests/             headless checks and fixtures/
   main.gd, main.tscn the overworld rig
@@ -100,7 +100,7 @@ docs/                runner.md, events.md
 
 ### 1.3 The envelope
 
-What `SubmitClient.result_ready` hands to `Simulation.load_battle` (the full
+What `BattleRunner.result_ready` hands to `ReplaySystem.load_battle` (the full
 field list is `docs/events.md`):
 
 ```json
@@ -124,20 +124,20 @@ Rules that are data (moves, units, levels, AIs) are Resources in
 
 | piece | file | what it is |
 |---|---|---|
-| **Effect** | `resources/effects/effect.gd` + `DamageEffect`, `HealEffect`, `BlockEffect`, `GuardEffect` | One step of a move. A Resource with one method, `apply(battle, user, target, scratch)`. |
-| **MoveScratch** | `resources/effects/move_scratch.gd` | Notepad shared by the effects of one move use, so a later effect can read what an earlier one did (drain heals by the damage that landed). |
+| **Effect** | `resources/effects/effect.gd` + `DamageEffect`, `HealEffect`, `ImmunityEffect`, `GuardEffect` | One step of a move. A Resource with one method, `apply(battle, user, target, move_context)`. |
+| **MoveContext** | `resources/effects/move_context.gd` | Notepad shared by the effects of one move use, so a later effect can read what an earlier one did (drain heals by the damage that landed). |
 | **Move** | `resources/move.gd` | A Resource: `id`, `name`, `description`, `target` (`ENEMY`, `ALLY` or `SELF`, relative to the user's side), `max_targets`, and a **list of effects** run in order. No numbers of its own: its effects scale off the user's stats. |
 | **Stats** | `resources/stats.gd` | A Resource: `hp`, `strength`, `magic`, `speed`. `scaled(stat, percent)` is how every effect turns a stat into a number. |
 | **UnitDef** | `resources/unit_def.gd` | A Resource: what a kind of unit is. `name`, `stats`, `moves`. Nothing about sides or who controls it. |
 | **Controller** | `resources/controllers/controller.gd` | Picks the actions of one side's units. The battle assigns it to a side. |
-| **TelegraphController** | `resources/controllers/telegraph_controller.gd` | The plain AI: telegraphs its first move at the first living opponent, then does it. |
-| **StudentController** | `resources/controllers/student_controller.gd` | Asks the student's code, through the `StrategyClient` in the battle's context. Turns every runner error into a message for the player. |
+| **TelegraphAI** | `resources/controllers/telegraph_ai.gd` | The plain AI: telegraphs its first move at the first living opponent, then does it. |
+| **StudentController** | `resources/controllers/student_controller.gd` | Asks the student's code, through the `StudentCode` in the battle's context. Turns every runner error into a message for the player. |
 | **Combatant** | `systems/battle/combatant.gd` | One unit in one battle: id, side, its own copy of the stats, hp, guard, moves, this turn's intent. The only thing that changes during a fight. Its `unit` is the shared UnitDef. |
 | **BattleSide** | `systems/battle/battle_side.gd` | A side: a `team` label for the log, a controller, its combatants. |
 | **Battle** | `systems/battle/battle.gd` | One fight. Holds the turn loop (`run`), turn order (`turn_order`), the one legality check (`use_error`), `use` (runs a move), the **primitives** (`deal_damage`, `heal`, `block`, `guard`), and `state_for`, the state the student sees. |
 | **BattleLog** | `systems/battle/battle_log.gd` | Builds the events. Only `Battle` writes to it. |
 | **BattleResult** | `systems/battle/battle_result.gd` | `won`, `reason`, `error`, `events`; `abort` if the battle could not finish at all. |
-| **Encounter** | `resources/encounter.gd` + `SideSpec`, `UnitSlot` | A battle written down as data: sides, their controllers and units, `rng_seed`, `max_turns`, `player_side`, `shared_moves`. `create_battle(context)` turns it into a Battle. |
+| **Level** | `resources/level.gd` + `LevelSide`, `LevelUnit` | A battle written down as data: sides, their controllers and units, `rng_seed`, `max_turns`, `player_side`, `shared_moves`. `create_battle(context)` turns it into a Battle. |
 
 ### 2.2 What happens in `Battle.run`
 
@@ -146,7 +146,7 @@ Rules that are data (moves, units, levels, AIs) are Resources in
    a constructor that throws ends the battle on turn 1.
 3. Each turn:
    1. Every living unit's controller may `plan` an intent. The
-      TelegraphController does; the student's does not. Intents are logged and
+      TelegraphAI does; the student's does not. Intents are logged and
       every later state shows them.
    2. Everyone acts in `turn_order()`: the living, **fastest first**; equal
       speed goes by side order, then position on the side. Anyone who died
@@ -175,7 +175,7 @@ Rules that are data (moves, units, levels, AIs) are Resources in
   are relative to `player_side`, not to a team name.
 - **An effect never builds an event.** It calls `battle.deal_damage`,
   `battle.heal`, `battle.block` or `battle.guard`, which log for it and name the move.
-- **Randomness only from `battle.rng`** (seeded from the Encounter), never
+- **Randomness only from `battle.rng`** (seeded from the Level), never
   `randi()` or `randf()`. The same code against the same level must give the
   same battle; `tests/smoke_battle` checks it.
 - **No nodes, no scene tree, no `await` in `systems/battle/`.** It runs on a worker
@@ -199,7 +199,7 @@ right-click `data/moves/` → New → Resource → **Move**, then fill it in the
 | `effects` | one `DamageEffect` with `stat` Magic, `percent` 150 |
 
 The `id` is the first word of the student's command (`"fireball e1"`), and the
-`move` field on every event the move causes, which Presentation can key off.
+`move` field on every event the move causes, which BattleDisplay can key off.
 Pick it once and don't rename it.
 
 **A move never holds a raw number.** Every effect names a **stat of the user**
@@ -210,9 +210,9 @@ and balancing is done on units' stats. The description is the only place the
 student reads what a move does, so say the percentage there.
 
 **(b) It combines existing effects.** Still just data. Effects run in order and
-share one MoveScratch. The real `drain` is a `DamageEffect` (Magic, 100%), then
-a `HealEffect` with `on_user` on and `from_scratch` = `damage`: with
-`from_scratch` set, `percent` is taken of that number instead of a stat.
+share one MoveContext. The real `drain` is a `DamageEffect` (Magic, 100%), then
+a `HealEffect` with `on_user` on and `from_context` = `damage`: with
+`from_context` set, `percent` is taken of that number instead of a stat.
 
 **(c) It needs a new mechanic.** Write a new Effect subclass, then use it in a
 move. Example, a reckless hit whose user takes half the damage as recoil:
@@ -227,8 +227,8 @@ extends Effect
 @export var divisor: int = 2
 
 
-func apply(battle: Battle, user: Combatant, _target: Combatant, scratch: MoveScratch) -> void:
-	battle.deal_damage(user, scratch.get_value(MoveScratch.DAMAGE) / divisor)
+func apply(battle: Battle, user: Combatant, _target: Combatant, move_context: MoveContext) -> void:
+	battle.deal_damage(user, move_context.get_value(MoveContext.DAMAGE) / divisor)
 ```
 
 `data/moves/reckless.tres`: target `Enemy`, effects `DamageEffect` (Strength, 200%), then
@@ -240,19 +240,19 @@ client change is needed for it to replay.
 has 2, so `"cleave e1 e2"` and `"cleave e1"` are both legal, and the effects
 run once per target in that order. A `Self` move takes no id at all.
 
-`block` (`GuardEffect`, Strength, 100%) is not `BlockEffect`. `block` the
+`block` (`GuardEffect`, Strength, 100%) is not `ImmunityEffect`. `block` the
 move gives its user a **guard**: damage up to its strength, taken before its
-next action, is absorbed. `BlockEffect` is an immunity check that makes a move bounce off a
+next action, is absorbed. `ImmunityEffect` is an immunity check that makes a move bounce off a
 target, logged as `blocked`.
 
 For a move that should *refuse* under some condition ("can't hit a flying
-unit"), subclass `BlockEffect`, override `reason(battle, user, target)` to
+unit"), subclass `ImmunityEffect`, override `reason(battle, user, target)` to
 return a message or `""`, and put it **first** in the effects. If it returns a
 reason it logs a `blocked` event and the rest of the move is skipped.
 
 **Giving the move to someone:** add it to a UnitDef's `moves`. A move nobody
 has does nothing. Moves every unit gets (today, `pass` and `block`) are the
-Encounter's `shared_moves`, added after the unit's own.
+Level's `shared_moves`, added after the unit's own.
 
 ### 2.5 Adding a kind of unit
 
@@ -265,12 +265,12 @@ them per combatant, so a future buff can change `combatant.stats` freely.
 
 There is no hero or monster: the same UnitDef can be on the party's side in one
 level and the enemy's in the next (`data/levels/swapped.tres` does exactly that).
-Order matters only to an AI that cares: the TelegraphController always uses the
+Order matters only to an AI that cares: the TelegraphAI always uses the
 **first** move.
 
 ### 2.6 Adding a level
 
-A `.tres` in `client/data/levels/`: New → Resource → **Encounter**.
+A `.tres` in `client/data/levels/`: New → Resource → **Level**.
 
 | field | meaning |
 |---|---|
@@ -278,23 +278,23 @@ A `.tres` in `client/data/levels/`: New → Resource → **Encounter**.
 | `max_turns` | turn limit before it's a loss (default 20) |
 | `player_side` | the index of the side whose win or loss is reported (default 0) |
 | `shared_moves` | moves every unit gets; put `data/moves/pass.tres` and `block.tres` here |
-| `sides` | in side order, which breaks speed ties. Each a **SideSpec**: `team` (a label for the log, `hero` or `enemy`), `controller` (New StudentController, New TelegraphController, or your own), `units` |
-| `units` | each a **UnitSlot**: `id` (unique in the battle, like `e1`), `unit` (a UnitDef), `bonus_max_hp` (up to this much extra max hp, rolled from the seed) |
+| `sides` | in side order, which breaks speed ties. Each a **LevelSide**: `team` (a label for the log, `hero` or `enemy`), `controller` (New StudentController, New TelegraphAI, or your own), `units` |
+| `units` | each a **LevelUnit**: `id` (unique in the battle, like `e1`), `unit` (a UnitDef), `bonus_max_hp` (up to this much extra max hp, rolled from the seed) |
 
-The level's id is its file name: `SubmitClient.submit(source, "example")` plays
+The level's id is its file name: `BattleRunner.submit(source, "example")` plays
 `res://data/levels/example.tres`. To play it in the game, add a zone for it
-(3.1); `default_level` in `data/server_config.tres` is what a BattleController
+(3.1); `default_level` in `data/server_config.tres` is what a BattleScreen
 opens before any zone sets one.
 
 ### 2.7 Adding an AI
 
-Subclass `Controller`, or `TelegraphController` to keep "telegraph, then do
+Subclass `Controller`, or `TelegraphAI` to keep "telegraph, then do
 it", and override what differs. Example, an AI that goes for the weakest
 opponent:
 
 ```gdscript
-class_name WeakestFirstController
-extends TelegraphController
+class_name WeakestFirstAI
+extends TelegraphAI
 ## Telegraphs its first move at the living opponent with the least hp.
 
 
@@ -322,7 +322,7 @@ shared Resources); anything an AI needs to remember goes on the Combatant or in
 
 ### 2.8 Using the battle somewhere else
 
-An Encounter is only one way to start a battle. `Battle` takes plain sides, so a
+A Level is only one way to start a battle. `Battle` takes plain sides, so a
 roguelike carrying hp between floors, or an overworld starting a fight on
 contact, builds them itself:
 
@@ -339,19 +339,19 @@ var rng := RandomNumberGenerator.new()
 rng.seed = run_state.seed + run_state.floor
 var battle := Battle.new(
 	[BattleSide.new("hero", StudentController.new(), party),
-	 BattleSide.new("enemy", TelegraphController.new(), foes)] as Array[BattleSide],
+	 BattleSide.new("enemy", TelegraphAI.new(), foes)] as Array[BattleSide],
 	0, 20, rng, {StudentController.CONTEXT_KEY: client})
 var result := battle.run()
 # result.won, result.events; read hp back off `party` for the next fight.
 ```
 
 A combatant's `side` (third argument) must be the index of the BattleSide it
-is in. The events go to `Simulation.load_battle` wrapped in an envelope (1.3),
+is in. The events go to `ReplaySystem.load_battle` wrapped in an envelope (1.3),
 or anywhere else.
 
 With the student's code in the loop, `run` blocks on HTTP, so call it off the
-main thread and create the client the way `SubmitClient._build_and_run` does:
-`/build` once, an `HttpStrategyClient` per battle, `/close` at the end. One
+main thread and create the client the way `BattleRunner._build_and_run` does:
+`/build` once, a `ServerStudentCode` per battle, `/close` at the end. One
 build can play any number of battles; each `/start` is a fresh `Submission`.
 For a fight with no student at all, give every side an AI and `run` needs no
 network.
@@ -364,8 +364,8 @@ on `Combatant`, a new primitive on `Battle` that changes it, and a new event
 from `BattleLog`. `guard` is the worked example: `Combatant.guard`,
 `Battle.guard`, `deal_damage` reading it, `BattleLog.guard`, and `GuardEffect`. Give the event a `move` field (the primitive
 gets it from `_resolving`) and the client's `effect_applied` signal picks it
-up with no change to Simulation. Add it to the event table in
-`docs/events.md`, and teach Presentation's `_on_effect_applied` what it looks like.
+up with no change to ReplaySystem. Add it to the event table in
+`docs/events.md`, and teach BattleDisplay's `_on_effect_applied` what it looks like.
 
 ### 2.10 What the student sees
 
@@ -405,32 +405,32 @@ Main                 (main.gd)  ← player movement, zones open the battle
 │   ├── DemoZone     Area2D with metadata `level` = "demo"; walking in opens it
 │   └── SmokeZone    same, "smoke"
 └── BattleLayer      CanvasLayer, hidden until a zone opens it
-    └── BattleController   (systems/battle_controller.gd)  ← wires everything together
-        ├── Simulation     (systems/simulation.gd)
-        ├── Presentation   (ui/presentation.gd), drawing into Stage
+    └── BattleScreen       (ui/battle_screen.gd)  ← wires everything together
+        ├── ReplaySystem   (systems/replay_system.gd)
+        ├── BattleDisplay  (ui/battle_display.gd), drawing into Stage
         ├── Stage          %HeroColumn | %EnemyColumn, %Banner
-        └── Flow           (ui/flow.tscn)
+        └── CodePanel      (ui/code_panel.tscn)
 ```
 
 A new zone is one more Area2D under Overworld with a `level` metadata entry,
 the level's file name (`"demo"` for `data/levels/demo.tres`).
-`BattleController.open(level)` shows an empty screen for it; once a battle
-loads it plays itself one event every `step_seconds`, and Flow's Leave emits
+`BattleScreen.open(level)` shows an empty screen for it; once a battle
+loads it plays itself one event every `step_seconds`, and CodePanel's Leave emits
 `closed` to go back.
 
 Plus two **autoloads** (Project Settings → Autoload), in `globals/`: `Config`
-and `SubmitClient`.
+and `BattleRunner`.
 
 | system | file | in plain words |
 |---|---|---|
-| **Flow** | `ui/flow.gd`, `ui/flow.tscn` | **The UI screen**: code editor, Submit, spinner, error label, and the replay buttons (Step, Skip, Reset) and Leave. A small state machine: `IDLE → SUBMITTING → REPLAYING` or `ERROR`. It knows nothing about battles; it reports clicks through signals and shows what it's told. |
-| **SubmitClient** | `globals/submit_client.gd` | **Build, play, hand over.** `submit(source, level)` compiles the source, runs the level's battle on a worker thread, and emits `result_ready(envelope)`, or `submit_failed(reason)` if the server couldn't be reached. |
+| **CodePanel** | `ui/code_panel.gd`, `ui/code_panel.tscn` | **The code panel**: code editor, Submit, spinner, error label, and the replay buttons (Step, Skip, Reset) and Leave. A small state machine: `IDLE → SUBMITTING → REPLAYING` or `ERROR`. It knows nothing about battles; it reports clicks through signals and shows what it's told. |
+| **BattleRunner** | `globals/battle_runner.gd` | **Build, play, hand over.** `submit(source, level_id)` compiles the source, runs the level's battle on a worker thread, and emits `result_ready(envelope)`, or `submit_failed(reason)` if the server couldn't be reached. |
 | **Config** | `globals/config.gd`, `data/server_config.tres` | **Settings** (a `ServerConfig`): `server_url`, `timeout_sec` (the compile step), `default_level`, `decide_timeout_ms` (per call to the student's code, 1 to 10,000). Edit the `.tres`. |
-| **Simulation** | `systems/simulation.gd` | **The replay engine.** Steps through the finished log one event at a time, like a tape player. Keeps each unit's hp and alive/dead, and emits **one signal per event**. No animation, no timers. |
-| **Presentation** | `ui/presentation.gd` | **What the player sees.** Listens to Simulation, prints each signal, and with a `stage` draws each unit as a ColorRect with a `name hp/max [guard n]` label: the first team to spawn on the left, the rest on the right, the unit acting in yellow, the dead in grey. **This is the file you rebuild with sprites, tweens and health bars.** |
-| **BattleController** | `systems/battle_controller.gd` | **The switchboard.** Every cross-system connection is in its `_ready()`, plus the autoplay timer. |
+| **ReplaySystem** | `systems/replay_system.gd` | **The replay engine.** Steps through the finished log one event at a time, like a tape player. Keeps each unit's hp and alive/dead, and emits **one signal per event**. No animation, no timers. |
+| **BattleDisplay** | `ui/battle_display.gd` | **What the player sees.** Listens to ReplaySystem, prints each signal, and with a `stage` draws each unit as a ColorRect with a `name hp/max [guard n]` label: the first team to spawn on the left, the rest on the right, the unit acting in yellow, the dead in grey. **This is the file you rebuild with sprites, tweens and health bars.** |
+| **BattleScreen** | `ui/battle_screen.gd` | **The switchboard.** Every cross-system connection is in its `_ready()`, plus the autoplay timer. |
 
-### 3.2 Simulation signals (what Presentation listens to)
+### 3.2 ReplaySystem signals (what BattleDisplay listens to)
 
 Every event signal carries the raw event `Dictionary` (see `docs/events.md`).
 Numbers are already `int`.
@@ -439,7 +439,7 @@ Numbers are already `int`.
 |---|---|---|---|
 | `battle_loaded()` | a good envelope arrived | | clear the stage |
 | `battle_reset()` | Reset, and right after loading | | remove all unit nodes, start over |
-| `submission_failed(message, line)` | compile error etc. | | (Flow handles it) |
+| `submission_failed(message, line)` | compile error etc. | | (CodePanel handles it) |
 | `spawned(event)` | `spawn` | `unit` (id like `"e1"`), `name` (`"Goblin"`), `team`, `hp`, `maxHp` | create the unit's sprite, chosen by `name` |
 | `intent(event)` | `intent` | `unit`, `move`, `target`, `targets` | an icon over the unit of what it will do |
 | `action(event)` | `action` | `unit`, `move`, `target`, `targets` (no target for a `self` move) | the user's attack/cast animation, chosen by `move` |
@@ -458,14 +458,14 @@ died            {unit: "e1"}
 
 **Why `effect_applied` is one signal:** every event a move causes carries
 `move`, so a new effect (recoil, a future `poison` event) arrives with **no
-change to Simulation**. Presentation decides what it looks like.
+change to ReplaySystem**. BattleDisplay decides what it looks like.
 
-At any time: `simulation.unit_ids()`, `simulation.unit_state("e1")` →
-`{name, team, hp, max_hp, alive}`, `simulation.turn`.
+At any time: `replay.unit_ids()`, `replay.unit_state("e1")` →
+`{name, team, hp, max_hp, alive}`, `replay.turn`.
 
 ### 3.3 Giving a move or unit its look
 
-There is no art yet and no display catalogue: Presentation draws every unit
+There is no art yet and no display catalogue: BattleDisplay draws every unit
 the same way and only prints moves. When art arrives, key it off what the
 events already carry: a unit's look off `spawn.name` (the UnitDef's `name`,
 not its id `"e1"`), a move's off `action.move` and `effect_applied.move` (the
@@ -546,15 +546,15 @@ Headless checks, from the repo root (`godot` is your Godot 4.7 binary):
 
 ```bash
 godot --headless --path client res://tests/smoke_battle.tscn        # the rules; no server; exits 1 on failure
-godot --headless --path client res://tests/smoke_simulation.tscn    # Simulation, from fixtures
-godot --headless --path client res://tests/smoke_presentation.tscn  # Presentation, from a fixture
+godot --headless --path client res://tests/smoke_replay.tscn    # ReplaySystem, from fixtures
+godot --headless --path client res://tests/smoke_battle_display.tscn  # BattleDisplay, from a fixture
 godot --headless --path client res://tests/smoke_submit.tscn        # real pipeline (needs server)
-godot --headless --path client res://tests/smoke_flow.tscn          # whole client (needs server)
+godot --headless --path client res://tests/smoke_game.tscn          # whole client (needs server)
 cd server && tests/e2e.sh                                           # Java
 ```
 
 **`tests/smoke_battle`** plays battles with students written in GDScript
-(`ScriptedStrategyClient`), so the rules are tested with no server. It checks:
+(`ScriptedStudentCode`), so the rules are tested with no server. It checks:
 
 - the battles recorded through the real pipeline (`smoke.json`, `demo.json`),
   event for event, so nothing is lost on the way to Java and back;
@@ -585,26 +585,26 @@ Re-record them when a rule or a level's numbers change on purpose, then run
 **New move (existing effects)**
 1. `client/data/moves/<id>.tres`: a Move.
 2. Add it to a UnitDef's `moves`.
-3. Optional: its look in `ui/presentation.gd`.
+3. Optional: its look in `ui/battle_display.gd`.
 
 **New move with a new mechanic**
 Same, plus `client/resources/effects/<name>_effect.gd`. If it can't be built
 from `deal_damage` / `heal` / `block` / `guard`, it needs a new primitive and
-event (2.9), a row in `docs/events.md`, and a branch in Presentation.
+event (2.9), a row in `docs/events.md`, and a branch in BattleDisplay.
 
 **New kind of unit**
 1. `client/data/units/<name>.tres`: a UnitDef.
 2. Put it in a level's side.
 
 **New level**
-1. `client/data/levels/<id>.tres`: an Encounter.
+1. `client/data/levels/<id>.tres`: a Level.
 2. An Area2D zone in `main.tscn` with `level` metadata `<id>`.
 3. A winning and a losing GDScript student in `tests/smoke_battle.gd`.
 
 **New AI**
-1. `client/resources/controllers/<name>_controller.gd`: a Controller subclass.
+1. `client/resources/controllers/<name>_ai.gd`: a Controller subclass.
 2. Pick it as a side's controller in a level.
 
-**Nothing in these lists touches** `battle.gd`, `simulation.gd`,
-`battle_controller.gd`, `flow.gd` or anything in `server/`. If you find you
+**Nothing in these lists touches** `battle.gd`, `replay_system.gd`,
+`battle_screen.gd`, `code_panel.gd` or anything in `server/`. If you find you
 need to, stop and rethink, or it's a genuinely new primitive.

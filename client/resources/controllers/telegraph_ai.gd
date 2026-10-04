@@ -1,4 +1,4 @@
-class_name TelegraphController
+class_name TelegraphAI
 extends Controller
 ## AI that telegraphs its first move at the first living opponent, then does it.
 

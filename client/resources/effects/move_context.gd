@@ -1,4 +1,4 @@
-class_name MoveScratch
+class_name MoveContext
 extends RefCounted
 ## Values shared by the effects of one use of a move on one target.
 

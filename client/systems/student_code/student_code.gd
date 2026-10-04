@@ -1,4 +1,4 @@
-class_name StrategyClient
+class_name StudentCode
 extends RefCounted
 ## One student's code for one battle; replies are docs/runner.md's, or {"abort": reason}.
 

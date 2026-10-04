@@ -1,4 +1,4 @@
-class_name Encounter
+class_name Level
 extends Resource
 ## A battle as data: sides, seed and turn limit.
 
@@ -8,7 +8,7 @@ extends Resource
 ## Moves every unit gets after its own, such as pass and block.
 @export var shared_moves: Array[Move] = []
 ## Side order breaks speed ties.
-@export var sides: Array[SideSpec] = []
+@export var sides: Array[LevelSide] = []
 
 
 ## Builds a Battle ready to run; `context` is handed to the controllers.
@@ -17,7 +17,7 @@ func create_battle(context: Dictionary = {}) -> Battle:
 	rng.seed = rng_seed
 	var battle_sides: Array[BattleSide] = []
 	for index in sides.size():
-		var spec: SideSpec = sides[index]
+		var spec: LevelSide = sides[index]
 		var units: Array[Combatant] = []
 		for slot in spec.units:
 			var max_hp := slot.unit.stats.hp

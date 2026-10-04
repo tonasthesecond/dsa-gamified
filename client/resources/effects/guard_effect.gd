@@ -6,5 +6,5 @@ extends Effect
 @export var percent: int = 100
 
 
-func apply(battle: Battle, user: Combatant, target: Combatant, _scratch: MoveScratch) -> void:
+func apply(battle: Battle, user: Combatant, target: Combatant, _move_context: MoveContext) -> void:
 	battle.guard(target, user.stats.scaled(stat, percent))

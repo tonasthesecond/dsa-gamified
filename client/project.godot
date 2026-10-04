@@ -17,4 +17,4 @@ config/features=PackedStringArray("4.7")
 [autoload]
 
 Config="*res://globals/config.gd"
-SubmitClient="*res://globals/submit_client.gd"
+BattleRunner="*res://globals/battle_runner.gd"

@@ -7,7 +7,7 @@ var in_battle := false
 
 @onready var player: CharacterBody2D = $Overworld/Player
 @onready var battle_layer: CanvasLayer = $BattleLayer
-@onready var battle: BattleController = %BattleController
+@onready var battle: BattleScreen = %BattleScreen
 
 
 func _ready() -> void:

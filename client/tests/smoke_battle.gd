@@ -18,15 +18,15 @@ func _ready() -> void:
 
 ## The recorded fixtures must match the same strategies written in GDScript.
 func _pipeline_recordings() -> void:
-	for level: String in ["smoke", "demo"]:
-		var path := "res://tests/fixtures/%s.json" % level
+	for level_id: String in ["smoke", "demo"]:
+		var path := "res://tests/fixtures/%s.json" % level_id
 		if not FileAccess.file_exists(path):
 			print("skipped: %s is not recorded; see tests/smoke_submit.gd" % path)
 			continue
-		var recorded: Dictionary = Simulation._whole_numbers_to_int(
+		var recorded: Dictionary = ReplaySystem._whole_numbers_to_int(
 			JSON.parse_string(FileAccess.get_file_as_string(path)))
-		var result := _battle(level, _first_enemy if level == "smoke" else _demo_win).run()
-		_check_events("%s, recorded through the server" % level, result.events, recorded.result.events)
+		var result := _battle(level_id, _first_enemy if level_id == "smoke" else _demo_win).run()
+		_check_events("%s, recorded through the server" % level_id, result.events, recorded.result.events)
 
 
 func _rules() -> void:
@@ -127,8 +127,8 @@ func _stats() -> void:
 	var drain: Dictionary = demo.events.filter(func(e: Dictionary) -> bool: return e.type == "damage" and e.move == "drain")[0]
 	_check("drain: 100% of the wraith's 3 magic", drain.amount, 3)
 
-	var encounter: Encounter = load("res://data/levels/demo.tres")
-	var battle := encounter.create_battle({StudentController.CONTEXT_KEY: ScriptedStrategyClient.new(_pass)})
+	var level: Level = load("res://data/levels/demo.tres")
+	var battle := level.create_battle({StudentController.CONTEXT_KEY: ScriptedStudentCode.new(_pass)})
 	battle.find("knight").stats.strength = 99
 	var knight_def: UnitDef = load("res://data/units/knight.tres")
 	_check("a combatant's stats are its own copy", knight_def.stats.strength, 6)
@@ -156,16 +156,16 @@ func _student_errors() -> void:
 	_check("empty command: error", empty.error,
 		"Your decide() for Hero returned an empty command. Return \"pass\" to do nothing.")
 
-	var encounter: Encounter = load("res://data/levels/smoke.tres")
-	var client := ScriptedStrategyClient.new(_first_enemy, {"error": {"kind": "threw",
+	var level: Level = load("res://data/levels/smoke.tres")
+	var client := ScriptedStudentCode.new(_first_enemy, {"error": {"kind": "threw",
 		"exception": "java.lang.IllegalStateException", "message": "not ready", "in": "constructor"}})
-	var ctor := encounter.create_battle({StudentController.CONTEXT_KEY: client}).run()
+	var ctor := level.create_battle({StudentController.CONTEXT_KEY: client}).run()
 	_check("constructor threw: error", ctor.error,
 		"Your Submission constructor threw java.lang.IllegalStateException: not ready")
 	_check("constructor threw: ends on turn 1", ctor.events[-1].turn, 1)
 
-	var gone := ScriptedStrategyClient.new(func(_s: Dictionary) -> Dictionary: return {"abort": "no server"})
-	var aborted := encounter.create_battle({StudentController.CONTEXT_KEY: gone}).run()
+	var gone := ScriptedStudentCode.new(func(_s: Dictionary) -> Dictionary: return {"abort": "no server"})
+	var aborted := level.create_battle({StudentController.CONTEXT_KEY: gone}).run()
 	_check("service gone mid-battle: aborted", aborted.abort.get("abort"), "no server")
 
 
@@ -173,9 +173,9 @@ func _seeded() -> void:
 	var first := JSON.stringify(_battle("demo", _demo_win).run().to_dict(), "", false)
 	var again := JSON.stringify(_battle("demo", _demo_win).run().to_dict(), "", false)
 	_check("demo: the same code gives the same battle", first == again, true)
-	var other: Encounter = (load("res://data/levels/demo.tres") as Encounter).duplicate()
+	var other: Level = (load("res://data/levels/demo.tres") as Level).duplicate()
 	other.rng_seed += 1
-	var client := ScriptedStrategyClient.new(_demo_win)
+	var client := ScriptedStudentCode.new(_demo_win)
 	var reseeded := JSON.stringify(other.create_battle({StudentController.CONTEXT_KEY: client}).run().to_dict(), "", false)
 	_check("demo: another seed gives another battle", first != reseeded, true)
 
@@ -192,9 +192,9 @@ func _swapped() -> void:
 	print("  swapped: %s" % result.reason)
 
 
-func _battle(level: String, decide: Callable) -> Battle:
-	var encounter: Encounter = load("res://data/levels/%s.tres" % level)
-	return encounter.create_battle({StudentController.CONTEXT_KEY: ScriptedStrategyClient.new(decide)})
+func _battle(level_id: String, decide: Callable) -> Battle:
+	var level: Level = load("res://data/levels/%s.tres" % level_id)
+	return level.create_battle({StudentController.CONTEXT_KEY: ScriptedStudentCode.new(decide)})
 
 
 # --- Students ---

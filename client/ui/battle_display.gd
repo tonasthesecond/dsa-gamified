@@ -1,6 +1,6 @@
-class_name Presentation
+class_name BattleDisplay
 extends Node
-## Draws a Simulation as coloured boxes on `stage`; prints every event without one.
+## Draws a replay as coloured boxes on `stage`; prints every event without one.
 
 const LEFT_COLOR := Color(0.25, 0.45, 0.9)
 const RIGHT_COLOR := Color(0.85, 0.3, 0.3)
@@ -16,16 +16,16 @@ var _left_team: String = ""
 var _last_actor: String = ""
 
 
-## Connects to every Simulation signal.
-func listen_to(sim: Simulation) -> void:
-	sim.battle_reset.connect(_on_reset)
-	sim.spawned.connect(_on_spawned)
-	sim.intent.connect(func(event: Dictionary) -> void: print("intent: %s" % event))
-	sim.action.connect(_on_action)
-	sim.effect_applied.connect(_on_effect_applied)
-	sim.died.connect(_on_died)
-	sim.ended.connect(_on_ended)
-	sim.unknown_event.connect(func(event: Dictionary) -> void: print("unknown: %s" % event))
+## Connects to every ReplaySystem signal.
+func listen_to(replay: ReplaySystem) -> void:
+	replay.battle_reset.connect(_on_reset)
+	replay.spawned.connect(_on_spawned)
+	replay.intent.connect(func(event: Dictionary) -> void: print("intent: %s" % event))
+	replay.action.connect(_on_action)
+	replay.effect_applied.connect(_on_effect_applied)
+	replay.died.connect(_on_died)
+	replay.ended.connect(_on_ended)
+	replay.unknown_event.connect(func(event: Dictionary) -> void: print("unknown: %s" % event))
 
 
 func _on_reset() -> void:

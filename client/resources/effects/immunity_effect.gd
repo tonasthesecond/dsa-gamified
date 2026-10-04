@@ -1,4 +1,4 @@
-class_name BlockEffect
+class_name ImmunityEffect
 extends Effect
 ## Stops the move on a target it bounces off; subclass reason() and put it first.
 
@@ -8,8 +8,8 @@ func reason(_battle: Battle, _user: Combatant, _target: Combatant) -> String:
 	return ""
 
 
-func apply(battle: Battle, user: Combatant, target: Combatant, scratch: MoveScratch) -> void:
+func apply(battle: Battle, user: Combatant, target: Combatant, move_context: MoveContext) -> void:
 	var why := reason(battle, user, target)
 	if not why.is_empty():
 		battle.block(target, why)
-		scratch.halt()
+		move_context.halt()

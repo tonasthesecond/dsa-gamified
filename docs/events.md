@@ -1,7 +1,7 @@
 # Events
 
-The battle log `Battle` writes and `Simulation` replays, inside the envelope
-`SubmitClient` emits:
+The battle log `Battle` writes and `ReplaySystem` replays, inside the envelope
+`BattleRunner` emits:
 
 ```json
 {"status": "ok", "message": "", "console": "...",
@@ -14,7 +14,7 @@ is null unless `ok`. When `error` is set, `reason` repeats it.
 Every event has `turn` (0 for spawns) and `type`. `unit` and `target` are
 unit ids from `spawn`. `move` names the move an event came from.
 
-| type | fields | Simulation signal |
+| type | fields | ReplaySystem signal |
 |---|---|---|
 | `spawn` | `unit`, `name`, `team`, `hp`, `maxHp` | `spawned` |
 | `intent` | `unit`, `action`, `target?`, `targets?`, `move` | `intent` |

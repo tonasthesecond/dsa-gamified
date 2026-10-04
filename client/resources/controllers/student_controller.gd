@@ -1,15 +1,15 @@
 class_name StudentController
 extends Controller
-## Asks the student's code, through the battle context's StrategyClient.
+## Asks the student's code, through the battle context's StudentCode.
 
-const CONTEXT_KEY := "strategy"
+const CONTEXT_KEY := "student_code"
 
 
 func begin(battle: Battle) -> Dictionary:
-	var client := _client(battle)
-	if client == null:
-		return {"abort": "no StrategyClient in the battle context under \"%s\"" % CONTEXT_KEY}
-	var reply := client.start()
+	var student_code := _student_code(battle)
+	if student_code == null:
+		return {"abort": "no StudentCode in the battle context under \"%s\"" % CONTEXT_KEY}
+	var reply := student_code.start()
 	if reply.has("abort"):
 		return reply
 	if reply.get("error") != null:
@@ -18,7 +18,7 @@ func begin(battle: Battle) -> Dictionary:
 
 
 func act(battle: Battle, unit: Combatant) -> Dictionary:
-	var reply := _client(battle).decide(battle.state_for(unit))
+	var reply := _student_code(battle).decide(battle.state_for(unit))
 	if reply.has("abort"):
 		return reply
 	var who := "Your decide() for %s" % unit.display_name()
@@ -56,5 +56,5 @@ static func describe(error: Dictionary, who: String, unit: Combatant = null) -> 
 			return "%s %s" % [who, message]
 
 
-func _client(battle: Battle) -> StrategyClient:
+func _student_code(battle: Battle) -> StudentCode:
 	return battle.context.get(CONTEXT_KEY)

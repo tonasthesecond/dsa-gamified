@@ -6,5 +6,5 @@ extends Effect
 @export var percent: int = 100
 
 
-func apply(battle: Battle, user: Combatant, target: Combatant, scratch: MoveScratch) -> void:
-	scratch.add(MoveScratch.DAMAGE, battle.deal_damage(target, user.stats.scaled(stat, percent)))
+func apply(battle: Battle, user: Combatant, target: Combatant, move_context: MoveContext) -> void:
+	move_context.add(MoveContext.DAMAGE, battle.deal_damage(target, user.stats.scaled(stat, percent)))

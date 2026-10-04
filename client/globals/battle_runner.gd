@@ -13,29 +13,29 @@ var _thread: Thread
 
 
 ## Plays data/levels/<level>.tres against `source`; ignored while one is running.
-func submit(source: String, level: String) -> void:
+func submit(source: String, level_id: String) -> void:
 	if _thread != null:
 		return
-	var encounter := load(LEVELS_DIR + level + ".tres") as Encounter
-	if encounter == null:
-		_fail.call_deferred("no level %s in %s" % [level, LEVELS_DIR])
+	var level := load(LEVELS_DIR + level_id + ".tres") as Level
+	if level == null:
+		_fail.call_deferred("no level %s in %s" % [level_id, LEVELS_DIR])
 		return
 	var settings := Config.settings
 	_thread = Thread.new()
-	_thread.start(_play.bind(source, encounter, settings.server_url,
+	_thread.start(_play.bind(source, level, settings.server_url,
 		int(settings.timeout_sec * 1000), settings.decide_timeout_ms))
 
 
 # Worker thread.
-func _play(source: String, encounter: Encounter, server_url: String,
+func _play(source: String, level: Level, server_url: String,
 		build_timeout_ms: int, decide_timeout_ms: int) -> void:
-	var connection := RunnerConnection.new(server_url)
-	var outcome := _build_and_run(connection, source, encounter, build_timeout_ms, decide_timeout_ms)
+	var connection := ServerConnection.new(server_url)
+	var outcome := _build_and_run(connection, source, level, build_timeout_ms, decide_timeout_ms)
 	connection.close()
 	_finish.call_deferred(outcome)
 
 
-func _build_and_run(connection: RunnerConnection, source: String, encounter: Encounter,
+func _build_and_run(connection: ServerConnection, source: String, level: Level,
 		build_timeout_ms: int, decide_timeout_ms: int) -> Dictionary:
 	var built := connection.post("/build", source, build_timeout_ms)
 	if built.has("transport"):
@@ -43,15 +43,15 @@ func _build_and_run(connection: RunnerConnection, source: String, encounter: Enc
 	if built.get("status") != "ok":
 		return {"envelope": _envelope(built.get("status"), built.get("message", ""), "", null)}
 
-	var client := HttpStrategyClient.new(connection, built.build, decide_timeout_ms)
-	var result := encounter.create_battle({StudentController.CONTEXT_KEY: client}).run()
+	var student_code := ServerStudentCode.new(connection, built.build, decide_timeout_ms)
+	var result := level.create_battle({StudentController.CONTEXT_KEY: student_code}).run()
 	connection.post("/close?build=%s" % str(built.build).uri_encode(), "", 5000)
 
 	if not result.abort.is_empty():
 		if result.abort.get("transport", false):
 			return {"transport": result.abort.abort}
-		return {"envelope": _envelope("runtime_error", str(result.abort.abort), client.console, null)}
-	return {"envelope": _envelope("ok", "", client.console, result.to_dict())}
+		return {"envelope": _envelope("runtime_error", str(result.abort.abort), student_code.console, null)}
+	return {"envelope": _envelope("ok", "", student_code.console, result.to_dict())}
 
 
 func _envelope(status: String, message: String, console: String, result: Variant) -> Dictionary:

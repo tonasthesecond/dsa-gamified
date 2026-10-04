@@ -1,5 +1,5 @@
-class_name ScriptedStrategyClient
-extends StrategyClient
+class_name ScriptedStudentCode
+extends StudentCode
 ## A student written in GDScript, for tests: `decide_fn(state)` returns the whole reply.
 
 var _decide_fn: Callable

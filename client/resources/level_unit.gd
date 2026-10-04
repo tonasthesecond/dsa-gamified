@@ -1,6 +1,6 @@
-class_name UnitSlot
+class_name LevelUnit
 extends Resource
-## One unit on a side of an Encounter, under a battle id like "e1".
+## One unit on a side of a Level, under a battle id like "e1".
 
 @export var id: String = ""
 @export var unit: UnitDef

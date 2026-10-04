@@ -4,5 +4,5 @@ extends Resource
 
 
 ## Applies this step to a target already known to be legal.
-func apply(_battle: Battle, _user: Combatant, _target: Combatant, _scratch: MoveScratch) -> void:
+func apply(_battle: Battle, _user: Combatant, _target: Combatant, _move_context: MoveContext) -> void:
 	pass
