@@ -2,3 +2,6 @@ build/
 .gradle/
 out/
 dsagame-api.jar
+client/addons/godot_mcp_enhanced
+.mcp.json
+client/godot_mcp_config.json

@@ -21,3 +21,6 @@ BattleRunner="*res://globals/battle_runner.gd"
 HoverUI="*res://globals/hover_ui.gd"
 Progress="*res://globals/progress.gd"
 
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/godot_mcp_enhanced/plugin.cfg")
