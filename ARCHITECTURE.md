@@ -118,7 +118,7 @@ the rules.
 | component | status | role |
 |---|---|---|
 | `BattleRunner` | built | `submit(source, level_id)`: build, play on a worker thread, emit `result_ready(envelope)` or `submit_failed(reason)`. Planned: the `progress` signal, and a retry with backoff when the server answers `busy`. |
-| `Config` | built | `ServerConfig` resource: `server_url`, timeouts, `default_level`. Planned: on web, `server_url` defaults to the page's own origin + `/api`. |
+| `Config` | built | `ServerConfig` resource: `server_url`, timeouts, `default_level`. On web, the page's own origin + `web_path` (`/api`). |
 | `Progress` | planned | The save file `user://progress.json`: `{version, cleared: {level: {turns, at}}, drafts: {level: source}, met: [unit names], settings}`. It writes on change and migrates by `version`. On web, Godot keeps `user://` in IndexedDB. **Export code** and **Import code** download or upload a `.java` file as a backup, because browser storage can be cleared. |
 | `Campaign` | planned | Reads `data/campaign.tres` (an ordered list of `CampaignStage`s). It answers "is this level unlocked" and "what comes next". |
 
@@ -185,6 +185,9 @@ student can print it.
   per action) that waits on an async `HTTPRequest` between steps. The rules,
   the log and the tests stay the same; only `BattleRunner` and the loop driver
   change. The cost is ~35 ms more per call (measured).
+- Built: the `Web` preset in `client/export_presets.cfg` (thread support on,
+  output `client/build/web/`), and `scripts/serve_web.py`, which serves it the
+  way Caddy will (COOP/COEP, `/api` proxied) for local testing.
 - The desktop export stays as the fallback for a lab session.
 
 ---
@@ -205,11 +208,11 @@ Knows nothing about the game. It compiles one Java file and runs `decide`.
 
 ### 4.1 Compiling untrusted source
 
-The compile step has three gaps today:
+The compile step had three gaps. The first is fixed:
 
 | gap | why it matters | fix |
 |---|---|---|
-| javac is run with no `-classpath` | In-process javac then uses the server's own classpath, which includes `teavm-jso`. A student can write `@JSBody(script = "...")` and run any JavaScript in node, including `require('child_process')`. | Pass `-classpath <build dir>` and `-proc:none`. The build already copies `api/` and `runner/` sources in, so nothing else is needed, and `org.teavm` stops resolving. Add an `e2e.sh` case that `@JSBody` is a `compile_error`. |
+| **Fixed:** javac ran with no `-classpath` | In-process javac used the server's own classpath, which includes `teavm-jso`. A student could write `@JSBody(script = "...")` and run any JavaScript in node (shown: it returned node's version). | javac now gets `-classpath <build dir>` and `-proc:none`, so `org.teavm` doesn't resolve. `examples/js_interop` checks it in `e2e.sh`. |
 | No limit on compiles at once | javac + TeaVM take hundreds of MB each, so 30 submits at once can exhaust the JVM. | A semaphore of 2 compile slots. Up to 20 requests wait; more get `busy`. |
 | No compile time limit | Source written to make javac slow ties up a slot. | 20 s per compile. If an in-process compile turns out not to stop when cancelled, move the compile step into a child JVM that can be killed. |
 
@@ -226,7 +229,7 @@ Student code is untrusted. The defences, from outside in:
    runs on the host, and it holds no secrets.
 3. **Contract limits** (built): source ≤ 50 KB, state ≤ 1 MB, call timeout
    1–10,000 ms, output ≤ 2,000,000 chars a battle, node heap 256 MB.
-4. **Compile isolation** (4.1): no JS interop, limited compile slots and time.
+4. **Compile isolation** (4.1): no JS interop (built), limited compile slots and time (planned).
 5. **Sandbox** (planned): no network, nothing writable except `/tmp`, memory
    and process count limited per battle, killed with the service.
 
@@ -306,7 +309,7 @@ that show the idea wins and the naive approach loses or is slower
 | `smoke_game` | server | the whole client |
 | `server/tests/e2e.sh` | JDK, node | every endpoint and error kind under real TeaVM |
 | `smoke_progress` (planned) | nothing | save, load, migration, a corrupt file |
-| `e2e.sh` hardening cases (planned) | bwrap | `@JSBody` is a compile error. Network, file write and fork attempts fail as student errors. `busy` appears over the cap. |
+| `e2e.sh` hardening cases | bwrap | Built: `@JSBody` is a compile error. Planned: network, file write and fork attempts fail as student errors. `busy` appears over the cap. |
 | `scripts/load_test.sh` (planned) | server | N parallel battles. It reports p95 `/decide` latency and when `busy` appears. |
 | Web build check (planned) | browser | the exported page plays one battle against the live server (3.7) |
 
@@ -346,7 +349,7 @@ that show the idea wins and the naive approach loses or is slower
 |---|---|
 | Blocking HTTP from a worker thread fails on web (3.7) | Test it first. Fallback: a step-machine battle on the main thread. |
 | Network latency makes battles slow (2.1) | A host near the students, a progress line, a call budget per level. Measure from campus. |
-| Untrusted code escapes | Classpath fix first (4.1), then the sandbox, the hardened unit, and no secrets on the host. |
+| Untrusted code escapes | The classpath fix (4.1, done), then the sandbox, the hardened unit, and no secrets on the host. |
 | Too many battles or compiles at once | Compile slots, `MAX_INSTANCES`, `busy` + retry. Load test before the student trial. |
 | TeaVM rejects code a JVM accepts | The Codex lists what works. Compile errors are shown clearly. Common cases go in `e2e.sh`. |
 | Level design takes longer than planned | Levels are data. Chapters 1–3 come first. Later chapters can ship with fewer levels. |
