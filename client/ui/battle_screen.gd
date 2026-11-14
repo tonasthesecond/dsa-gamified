@@ -22,6 +22,7 @@ func _ready() -> void:
 	battle_display.listen_to(replay)
 
 	code_panel.submit_pressed.connect(func(source: String) -> void:
+		Progress.save_draft(level, source)
 		BattleRunner.submit(source, level))
 	BattleRunner.result_ready.connect(replay.load_battle)
 
@@ -38,6 +39,7 @@ func _ready() -> void:
 		_autoplay.start())
 	code_panel.leave_pressed.connect(func() -> void:
 		_autoplay.stop()
+		Progress.save_draft(level, code_panel.source())
 		closed.emit())
 
 	_autoplay.wait_time = step_seconds
@@ -49,14 +51,16 @@ func _ready() -> void:
 	replay.battle_loaded.connect(%Briefing.hide)
 	replay.ended.connect(func(won: bool, _reason: String) -> void:
 		if won:
+			Progress.mark_cleared(level, replay.turn)
 			cleared.emit(level))
 
 
-## Shows an empty battle screen for a level, with its briefing.
+## Shows an empty battle screen for a level, with its briefing and the player's last code for it.
 func open(level_id: String) -> void:
 	level = level_id
 	_autoplay.stop()
 	replay.reset()
+	code_panel.set_source(Progress.draft(level_id, code_panel.starter))
 	code_panel.show_idle()
 	%Briefing.text = briefing(load("res://data/levels/%s.tres" % level_id))
 	%Briefing.show()

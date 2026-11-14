@@ -11,6 +11,8 @@ signal reset_pressed
 signal leave_pressed
 
 var state: State = State.IDLE
+## The code the editor starts with, for a level with no draft yet.
+var starter: String = ""
 
 @onready var _editor: TextEdit = %Editor
 @onready var _submit: Button = %Submit
@@ -20,6 +22,7 @@ var state: State = State.IDLE
 
 
 func _ready() -> void:
+	starter = _editor.text
 	_submit.pressed.connect(func() -> void:
 		_set_state(State.SUBMITTING)
 		submit_pressed.emit(_editor.text))
@@ -28,6 +31,17 @@ func _ready() -> void:
 	%Reset.pressed.connect(reset_pressed.emit)
 	%Leave.pressed.connect(leave_pressed.emit)
 	_set_state(State.IDLE)
+
+
+## The code in the editor.
+func source() -> String:
+	return _editor.text
+
+
+## Replaces the code in the editor.
+func set_source(text: String) -> void:
+	_editor.text = text
+	_editor.clear_undo_history()
 
 
 ## Shows that the server could not be reached.

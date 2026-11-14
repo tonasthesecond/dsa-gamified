@@ -58,7 +58,9 @@ Balance by stats, never by raw numbers in moves.
   a `DamageEffect` in `when_right`.
 
 Then an Area2D zone in `client/main.tscn` under `Overworld`, copied from an
-existing zone, with `metadata/level = "<id>"` and its own position.
+existing zone, with `metadata/level = "<id>"` and its own position, and a
+`CampaignStage` in `client/data/campaign.tres` (`level`, and the levels it
+`requires`). `smoke_progress` fails if a zone has no stage or a stage no zone.
 
 ## 5. Tests
 
@@ -75,6 +77,7 @@ Run:
 ```bash
 G=~/applications/godot/godot
 $G --headless --path client res://tests/smoke_battle.tscn
+$G --headless --path client res://tests/smoke_progress.tscn
 ```
 
 If the level should play through the real pipeline, add its winning Java to
@@ -98,5 +101,5 @@ equals the recorded one.
 - [ ] winning run under ~30 student calls; `max_turns` × student units ≤ 100
 - [ ] briefing names the idea and shows one example command
 - [ ] `docs/runner.md` rows for any new body kind or crit id
-- [ ] zone in `main.tscn`; fixtures re-recorded if the pipeline covers it
+- [ ] zone in `main.tscn` and stage in `campaign.tres`; fixtures re-recorded if the pipeline covers it
 - [ ] all smoke tests green; report any that you could not run

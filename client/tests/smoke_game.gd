@@ -1,7 +1,13 @@
 extends Node
 ## The whole client: submits the starter code, then a broken one. Needs the server.
 
+const PROGRESS_FILE := "user://smoke_game_progress.json"
+
+
 func _ready() -> void:
+	# Its own save file, so the broken code it submits never becomes the player's draft.
+	DirAccess.remove_absolute(PROGRESS_FILE)
+	Progress.use_file(PROGRESS_FILE)
 	var main: Node = preload("res://main.tscn").instantiate()
 	add_child(main)
 	var battle_screen: BattleScreen = main.get_node("%BattleScreen")
@@ -23,6 +29,7 @@ func _ready() -> void:
 		submit.pressed.emit()
 		await _left_submitting(code_panel)
 		print("code panel state: %s, error: %s" % [CodePanel.State.keys()[code_panel.state], code_panel.get_node("%Error").text])
+	DirAccess.remove_absolute(PROGRESS_FILE)
 	get_tree().quit()
 
 

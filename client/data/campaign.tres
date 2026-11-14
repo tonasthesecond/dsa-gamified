@@ -1,0 +1,33 @@
+[gd_resource type="Resource" script_class="Campaign" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://resources/campaign.gd" id="1"]
+[ext_resource type="Script" path="res://resources/campaign_stage.gd" id="2"]
+
+[sub_resource type="Resource" id="camp"]
+script = ExtResource("2")
+level = "camp"
+requires = Array[String]([])
+
+[sub_resource type="Resource" id="burrow"]
+script = ExtResource("2")
+level = "burrow"
+requires = Array[String](["camp"])
+
+[sub_resource type="Resource" id="nest"]
+script = ExtResource("2")
+level = "nest"
+requires = Array[String](["burrow"])
+
+[sub_resource type="Resource" id="pecking_order"]
+script = ExtResource("2")
+level = "pecking_order"
+requires = Array[String](["nest"])
+
+[sub_resource type="Resource" id="gatehouse"]
+script = ExtResource("2")
+level = "gatehouse"
+requires = Array[String](["pecking_order"])
+
+[resource]
+script = ExtResource("1")
+stages = Array[ExtResource("2")]([SubResource("camp"), SubResource("burrow"), SubResource("nest"), SubResource("pecking_order"), SubResource("gatehouse")])

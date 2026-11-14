@@ -76,8 +76,9 @@ Folders are by role: what a file *is*, not which feature it belongs to.
 
 ```
 client/
-  globals/           autoloads: Config, BattleRunner
-  resources/         Resource classes: Stats, UnitDef, Move, Level, LevelSide, LevelUnit, ServerConfig
+  globals/           autoloads: Config, BattleRunner, HoverUI, Progress (the save file)
+  resources/         Resource classes: Stats, UnitDef, Move, Level, LevelSide, LevelUnit, LevelRule,
+                     Campaign, CampaignStage, ServerConfig
     effects/         Effect and its subclasses, MoveContext
     controllers/     Controller, TelegraphController, StudentController
   systems/
@@ -86,7 +87,7 @@ client/
     replay_system.gd ReplaySystem: steps through a finished battle log
   ui/                BattleScreen (wires a battle together), CodePanel (editor, buttons),
                      BattleDisplay (draws the stage)
-  data/              .tres: moves/, units/, levels/, server_config.tres
+  data/              .tres: moves/, units/, levels/, problems/, campaign.tres, server_config.tres
   tests/             headless checks and fixtures/
   main.gd, main.tscn the overworld rig
 server/
@@ -643,7 +644,9 @@ event (2.9), a row in `docs/events.md`, and a branch in BattleDisplay.
 **New level**
 1. `client/data/levels/<id>.tres`: a Level.
 2. An Area2D zone in `main.tscn` with `level` metadata `<id>`.
-3. A winning and a losing GDScript student in `tests/smoke_battle.gd`.
+3. A `CampaignStage` in `data/campaign.tres` with the levels it `requires`
+   (`smoke_progress` checks every zone has one).
+4. A winning and a losing GDScript student in `tests/smoke_battle.gd`.
 
 **New monster with a question**
 1. `client/data/units/<name>.tres`: a UnitDef with a `body` and a `crit` problem.

@@ -48,8 +48,8 @@ data. A battle is played in full first, then replayed.
 │  Screens      Title, WorldMap,       │◄─────────┤   /api/*  → compile service on 127.0.0.1:8080  │
 │               BattleScreen, Codex    │          │                                                │
 │  Coordination BattleRunner,          │ POST     │ Compile service (server/, systemd unit)        │
-│               Progress, Campaign,    │ /api/... │   Server ─ Builds ─ Instance ─ Sandbox         │
-│               Config                 ├─────────►│   javac + TeaVM 0.13 → JS program per build    │
+│               Progress, Config       │ /api/... │   Server ─ Builds ─ Instance ─ Sandbox         │
+│                                      ├─────────►│   javac + TeaVM 0.13 → JS program per build    │
 │  Game logic   Battle, ReplaySystem,  │ state →  │                                                │
 │               StudentCode            │ ← command│ Sandbox (bubblewrap + cgroup, per battle)      │
 │  Content      data/*.tres            │          │   node host.js + student program               │
@@ -106,9 +106,9 @@ the rules.
 | component | status | role |
 |---|---|---|
 | `TitleScreen` | planned | Continue / New game / Settings. Shows whether the server is reachable (`GET /health`). |
-| `WorldMap` (`main.tscn`, `main.gd`) | partial | Overworld with one zone per level. Built: zones open a battle, a cleared zone turns green for the session. Needed: locked zones and saved clears from `Progress` and `Campaign`, and a layout by chapter. |
+| `WorldMap` (`main.tscn`, `main.gd`) | partial | Overworld with one zone per level. Built: zones open a battle; each zone is painted cleared (green, with its best turns), open, or locked, from `Progress` and `data/campaign.tres`; a locked zone can't be entered. Needed: a layout by chapter. |
 | `BattleScreen` | built | The switchboard. It wires `CodePanel`, `BattleRunner`, `ReplaySystem` and `BattleDisplay` together, autoplays the replay, and shows the briefing. |
-| `CodePanel` | partial | Editor, Submit, replay controls, errors. Needed: Java syntax highlighting, starter code per level, saving the draft as it is edited, jumping to a compile error's line, the progress line (2.1), and the decision console (3.6). |
+| `CodePanel` | partial | Editor, Submit, replay controls, errors. Built: the player's draft per level, saved on Submit and Leave and restored on open. Needed: Java syntax highlighting, starter code per level, jumping to a compile error's line, the progress line (2.1), and the decision console (3.6). |
 | `BattleDisplay` | partial | Built: ColorRect units with labels. Needed: sprites and tweens chosen by `LookCatalog`, health bars, damage numbers, intent icons, and a `BodyView` per body (3.5). |
 | `Codex` | planned | A reference that can be opened from any screen. It covers the `Strategy` API, the state shape, every move, what Java works under TeaVM, and a page per monster met (its body, its crit, a worked example). Meeting a monster for the first time opens its page. |
 | `HoverUI` + `HoverComponent` | built | Hover popups on any Control or Area2D. |
@@ -119,8 +119,7 @@ the rules.
 |---|---|---|
 | `BattleRunner` | built | `submit(source, level_id)`: build, play on a worker thread, emit `result_ready(envelope)` or `submit_failed(reason)`. Planned: the `progress` signal, and a retry with backoff when the server answers `busy`. |
 | `Config` | built | `ServerConfig` resource: `server_url`, timeouts, `default_level`. On web, the page's own origin + `web_path` (`/api`). |
-| `Progress` | planned | The save file `user://progress.json`: `{version, cleared: {level: {turns, at}}, drafts: {level: source}, met: [unit names], settings}`. It writes on change and migrates by `version`. On web, Godot keeps `user://` in IndexedDB. **Export code** and **Import code** download or upload a `.java` file as a backup, because browser storage can be cleared. |
-| `Campaign` | planned | Reads `data/campaign.tres` (an ordered list of `CampaignStage`s). It answers "is this level unlocked" and "what comes next". |
+| `Progress` | partial | The save file `user://progress.json`: `{version, cleared: {level: {turns, at}}, drafts: {level: source}}`. Built: it keeps the fewest turns per level, writes through a `.tmp` file on every change, and keeps an unreadable or other-version file as `.bak`. On web, Godot keeps `user://` in IndexedDB. Planned: `met` (monsters seen, for the Codex), settings, and **Export code** / **Import code** (a `.java` file) as a backup, because browser storage can be cleared. |
 
 ### 3.3 Game logic (`systems/`)
 
@@ -144,7 +143,7 @@ Everything a designer changes is a `.tres`. Code is written only for a new
 | `Controller`s | built | `TelegraphController` (AI) and `StudentController`. New AIs are subclasses. |
 | `Body`s | partial | Built: `ArrayBody`, `LinkedListBody`. Planned for the campaign: `CyclicListBody`, `SortedArrayBody`, `BracketStringBody`, `TreeBody` (node table), `GraphBody` (adjacency), `GridBody`. |
 | `Problem`s | partial | Built: `MiddleValueProblem`, `MinIndexProblem`, `MedianOfAllProblem`, `LowestHpTargetProblem`. Planned: one per campaign idea (`IDEAS.md`). |
-| `CampaignStage`, `Campaign` | planned | `level`, `chapter`, `requires` (the levels to clear first), and `introduces` (the UnitDefs whose Codex page opens on first meeting). |
+| `Campaign`, `CampaignStage` | partial | `data/campaign.tres`: the stages in order, each a `level` and the levels it `requires`. `Campaign.is_unlocked(level, is_cleared)`; a level outside the campaign is always open. Planned: `chapter`, and `introduces` (the UnitDefs whose Codex page opens on first meeting). |
 | `UnitLook`, `MoveLook`, `LookCatalog` | planned | Art keyed by `UnitDef.name` and `Move.id`, the same keys the events carry. A missing look falls back to the plain box and never stops a replay. |
 
 ### 3.5 Showing data structures
@@ -265,7 +264,7 @@ acceptable while there is no grading (section 1).
 |---|---|---|
 | HTTP + student state + command | `docs/runner.md` | Fields and statuses are only added. A rename breaks submissions. |
 | Battle log + envelope | `docs/events.md` | Fields and event types are only added. Any new event caused by a move carries `move`. |
-| Save file | `Progress` (planned) | Has a `version` and migrates forward. A broken file is renamed to `.bak` and a fresh one is started. |
+| Save file | `globals/progress.gd` | Has a `version` and migrates forward. A broken file is renamed to `.bak` and a fresh one is started. |
 
 Planned additions, all additive: `spawn.body`, the `body` event,
 `envelope.decisions`, the `busy` status, `GET /health`.
@@ -308,7 +307,7 @@ that show the idea wins and the naive approach loses or is slower
 | `smoke_submit` | server | the real pipeline. `--record` re-records `tests/fixtures/*.json`. |
 | `smoke_game` | server | the whole client |
 | `server/tests/e2e.sh` | JDK, node | every endpoint and error kind under real TeaVM |
-| `smoke_progress` (planned) | nothing | save, load, migration, a corrupt file |
+| `smoke_progress` | nothing | save and reload, best turns, corrupt and other-version files, campaign locks, zones = stages, drafts in the editor |
 | `e2e.sh` hardening cases | bwrap | Built: `@JSBody` is a compile error. Planned: network, file write and fork attempts fail as student errors. `busy` appears over the cap. |
 | `scripts/load_test.sh` (planned) | server | N parallel battles. It reports p95 `/decide` latency and when `busy` appears. |
 | Web build check (planned) | browser | the exported page plays one battle against the live server (3.7) |
