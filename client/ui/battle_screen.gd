@@ -26,6 +26,7 @@ func _ready() -> void:
 		BattleRunner.submit(source, level))
 	BattleRunner.result_ready.connect(replay.load_battle)
 
+	BattleRunner.progress.connect(code_panel.show_progress)
 	BattleRunner.submit_failed.connect(code_panel.show_transport_error)
 	replay.submission_failed.connect(code_panel.show_submission_error)
 

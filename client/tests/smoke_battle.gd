@@ -15,6 +15,7 @@ func _ready() -> void:
 	_crits()
 	_level_rules()
 	_campaign()
+	_progress()
 	print("ALL BATTLE CHECKS PASSED" if _failures == 0 else "%d BATTLE CHECK(S) FAILED" % _failures)
 	get_tree().quit(1 if _failures > 0 else 0)
 
@@ -294,6 +295,19 @@ func _campaign() -> void:
 			_turns(fast) < _turns(slow), true)
 	_check("gatehouse: no median, no win", _battle("gatehouse", _campaign_student.bind("naive")).run().won, false)
 	_check("gatehouse: the median wins", _battle("gatehouse", _campaign_student.bind("lowest")).run().won, true)
+
+
+## on_turn reports every turn played, in order, against the turn limit.
+func _progress() -> void:
+	var seen: Array = []
+	var battle := _battle("camp", _campaign_student.bind("lowest"))
+	battle.on_turn = func(turn: int, max_turns: int) -> void: seen.append([turn, max_turns])
+	var result := battle.run()
+	var expected: Array = []
+	for t in range(1, _turns(result) + 1):
+		expected.append([t, battle.max_turns])
+	_check("on_turn: once per turn played, in order", seen, expected)
+	_check("on_turn: unset changes nothing", _battle("camp", _campaign_student.bind("lowest")).run().to_dict(), result.to_dict())
 
 
 ## Returns the turn a battle ended on.

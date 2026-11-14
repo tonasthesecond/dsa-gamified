@@ -57,6 +57,11 @@ show_percentage = false
 indeterminate = true
 editor_preview_indeterminate = false
 
+[node name="Status" type="Label" parent="VBox/Bar" unique_id=1017669931]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Compiling…"
+
 [node name="Replay" type="HBoxContainer" parent="VBox/Bar" unique_id=1054161544]
 unique_name_in_owner = true
 layout_mode = 2

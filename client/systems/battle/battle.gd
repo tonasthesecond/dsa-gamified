@@ -16,6 +16,8 @@ var rng: RandomNumberGenerator
 ## For the controllers, such as the StudentCode under "student_code".
 var context: Dictionary
 var turn: int = 0
+## Called with (turn, max_turns) as each turn starts, on the battle's thread; unset by default.
+var on_turn: Callable
 var battle_log := BattleLog.new()
 ## The level's rules, judged on each move the player's side aims at an enemy; set by Level.create_battle.
 var rules: Array[LevelRule] = []
@@ -52,6 +54,8 @@ func run() -> BattleResult:
 
 	for t in range(1, max_turns + 1):
 		turn = t
+		if on_turn.is_valid():
+			on_turn.call(turn, max_turns)
 
 		for unit in turn_order():
 			unit.intent = controller_of(unit).plan(self, unit)

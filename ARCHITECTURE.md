@@ -88,8 +88,9 @@ make **8–16 calls**, so they take about 0.5–1.5 s. The slow case is a losing
 run that hits the turn limit: 50 turns × 2 units = 100 calls, or **3–8 s**,
 with nothing on screen until it ends. So:
 - host the server near the students (a Singapore region for Vietnam),
-- `BattleRunner` emits `progress(turn, max_turns)` from the worker thread
-  (`call_deferred`), and `CodePanel` shows "Playing turn 7 / 50…",
+- (built) `Battle.on_turn` reports each turn; `BattleRunner` re-emits it as
+  `progress(turn, max_turns)` on the main thread, and `CodePanel` shows
+  "Compiling…", then "Playing turn 7 / 50…",
 - size a level by its calls, not its turns: a winning run should stay under
   ~30 calls, and `max_turns` × student units should stay ≤ 100.
 
@@ -108,7 +109,7 @@ the rules.
 | `TitleScreen` | planned | Continue / New game / Settings. Shows whether the server is reachable (`GET /health`). |
 | `WorldMap` (`main.tscn`, `main.gd`) | partial | Overworld with one zone per level. Built: zones open a battle; each zone is painted cleared (green, with its best turns), open, or locked, from `Progress` and `data/campaign.tres`; a locked zone can't be entered. Needed: a layout by chapter. |
 | `BattleScreen` | built | The switchboard. It wires `CodePanel`, `BattleRunner`, `ReplaySystem` and `BattleDisplay` together, autoplays the replay, and shows the briefing. |
-| `CodePanel` | partial | Editor, Submit, replay controls, errors. Built: the player's draft per level, saved on Submit and Leave and restored on open. Needed: Java syntax highlighting, starter code per level, jumping to a compile error's line, the progress line (2.1), and the decision console (3.6). |
+| `CodePanel` | partial | Editor, Submit, replay controls, errors. Built: the player's draft per level, saved on Submit and Leave and restored on open, and the progress line (2.1). Needed: Java syntax highlighting, starter code per level, jumping to a compile error's line, and the decision console (3.6). |
 | `BattleDisplay` | partial | Built: ColorRect units with labels. Needed: sprites and tweens chosen by `LookCatalog`, health bars, damage numbers, intent icons, and a `BodyView` per body (3.5). |
 | `Codex` | planned | A reference that can be opened from any screen. It covers the `Strategy` API, the state shape, every move, what Java works under TeaVM, and a page per monster met (its body, its crit, a worked example). Meeting a monster for the first time opens its page. |
 | `HoverUI` + `HoverComponent` | built | Hover popups on any Control or Area2D. |
@@ -117,7 +118,7 @@ the rules.
 
 | component | status | role |
 |---|---|---|
-| `BattleRunner` | built | `submit(source, level_id)`: build, play on a worker thread, emit `result_ready(envelope)` or `submit_failed(reason)`. Planned: the `progress` signal, and a retry with backoff when the server answers `busy`. |
+| `BattleRunner` | built | `submit(source, level_id)`: build, play on a worker thread, emit `result_ready(envelope)` or `submit_failed(reason)`. Built: the `progress` signal. Planned: a retry with backoff when the server answers `busy`. |
 | `Config` | built | `ServerConfig` resource: `server_url`, timeouts, `default_level`. On web, the page's own origin + `web_path` (`/api`). |
 | `Progress` | partial | The save file `user://progress.json`: `{version, cleared: {level: {turns, at}}, drafts: {level: source}}`. Built: it keeps the fewest turns per level, writes through a `.tmp` file on every change, and keeps an unreadable or other-version file as `.bak`. On web, Godot keeps `user://` in IndexedDB. Planned: `met` (monsters seen, for the Codex), settings, and **Export code** / **Import code** (a `.java` file) as a backup, because browser storage can be cleared. |
 

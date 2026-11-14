@@ -17,6 +17,7 @@ var starter: String = ""
 @onready var _editor: TextEdit = %Editor
 @onready var _submit: Button = %Submit
 @onready var _spinner: ProgressBar = %Spinner
+@onready var _status: Label = %Status
 @onready var _replay: Control = %Replay
 @onready var _error: Label = %Error
 
@@ -42,6 +43,11 @@ func source() -> String:
 func set_source(text: String) -> void:
 	_editor.text = text
 	_editor.clear_undo_history()
+
+
+## Shows how far the battle being played has got.
+func show_progress(turn: int, max_turns: int) -> void:
+	_status.text = "Playing turn %d / %d…" % [turn, max_turns]
 
 
 ## Shows that the server could not be reached.
@@ -75,5 +81,8 @@ func _set_state(new_state: State) -> void:
 	%Leave.disabled = state == State.SUBMITTING
 	_editor.editable = state != State.SUBMITTING
 	_spinner.visible = state == State.SUBMITTING
+	_status.visible = state == State.SUBMITTING
+	if state == State.SUBMITTING:
+		_status.text = "Compiling…"
 	_replay.visible = state == State.REPLAYING
 	_error.visible = state == State.ERROR

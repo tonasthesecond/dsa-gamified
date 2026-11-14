@@ -5,6 +5,8 @@ extends Node
 signal result_ready(envelope: Dictionary)
 ## The server could not be reached or answered nonsense.
 signal submit_failed(reason: String)
+## A turn of the battle being played started; nothing is replayed until it ends.
+signal progress(turn: int, max_turns: int)
 
 const LEVELS_DIR := "res://data/levels/"
 const MAX_CONSOLE_CHARS := 4000
@@ -44,7 +46,10 @@ func _build_and_run(connection: ServerConnection, source: String, level: Level,
 		return {"envelope": _envelope(built.get("status"), built.get("message", ""), "", null)}
 
 	var student_code := ServerStudentCode.new(connection, built.build, decide_timeout_ms)
-	var result := level.create_battle({StudentController.CONTEXT_KEY: student_code}).run()
+	var battle := level.create_battle({StudentController.CONTEXT_KEY: student_code})
+	battle.on_turn = func(turn: int, max_turns: int) -> void:
+		progress.emit.call_deferred(turn, max_turns)
+	var result := battle.run()
 	connection.post("/close?build=%s" % str(built.build).uri_encode(), "", 5000)
 
 	if not result.abort.is_empty():
