@@ -84,6 +84,7 @@ when_right = Array[ExtResource("12_effect")]([SubResource("Outcome")])
 resource_name = "Pecking Order: hitting the weakest enemy first hits harder."
 script = ExtResource("1_level")
 title = "4. Pecking Order"
+starter_code = "res://data/starters/pecking_order.java"
 briefing = "No bodies here, and no answer to send: this level's rule rewards whoever you hit, not what you say. Hit the enemy with the least hp and the blow lands 50% harder. The order of state.get(\"enemies\") is by speed, not by hp."
 rng_seed = 104
 max_turns = 50

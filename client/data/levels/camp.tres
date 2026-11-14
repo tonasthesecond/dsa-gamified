@@ -62,6 +62,7 @@ units = Array[ExtResource("7_slot")]([SubResource("E0"), SubResource("E1"), SubR
 resource_name = "Goblin Camp: a plain fight to learn decide(), targets and healing."
 script = ExtResource("1_level")
 title = "1. Goblin Camp"
+starter_code = "res://data/starters/camp.java"
 briefing = "Your knight and cleric each call decide() on their turn. Return a command: the move id, then target ids, like \"attack e1\" or \"heal knight\". Read state.get(\"enemies\") for who is left, and state.get(\"self\") for who is deciding. The starter code already wins; try keeping the cleric healing instead."
 rng_seed = 101
 max_turns = 50

@@ -61,10 +61,18 @@ func open(level_id: String) -> void:
 	level = level_id
 	_autoplay.stop()
 	replay.reset()
-	code_panel.set_source(Progress.draft(level_id, code_panel.starter))
+	var spec: Level = load("res://data/levels/%s.tres" % level_id)
+	code_panel.set_source(Progress.draft(level_id, starter_for(spec)))
 	code_panel.show_idle()
-	%Briefing.text = briefing(load("res://data/levels/%s.tres" % level_id))
+	%Briefing.text = briefing(spec)
 	%Briefing.show()
+
+
+## The level's starter code, or CodePanel's when it has none.
+func starter_for(spec: Level) -> String:
+	if spec.starter_code.is_empty():
+		return code_panel.starter
+	return FileAccess.get_file_as_string(spec.starter_code)
 
 
 ## Returns what the player needs before writing code: the goal, each kind of enemy's crit, and the rules.

@@ -75,6 +75,7 @@ when_wrong = Array[ExtResource("12_effect")]([SubResource("Outcome")])
 resource_name = "Gatehouse: every attack bounces unless it names the median of every body."
 script = ExtResource("1_level")
 title = "5. Gatehouse"
+starter_code = "res://data/starters/gatehouse.java"
 briefing = "The gate takes a toll: every attack needs the median of every value in every enemy body, or it bounces off. Send it as \"attack e1 | median 21.5\", next to a crit if you have one: \"attack e1 | crit 4 | median 21.5\". Bodies change after each crit, so compute it fresh every turn."
 rng_seed = 105
 max_turns = 50

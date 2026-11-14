@@ -67,6 +67,11 @@ func _campaign() -> void:
 			cleared[required] = true
 		_check("%s: open after them" % stage.level, campaign.is_unlocked(stage.level, is_cleared), true)
 		known.append(stage.level)
+		var spec: Level = load("res://data/levels/%s.tres" % stage.level)
+		_check("%s: has starter code" % stage.level, FileAccess.file_exists(spec.starter_code), true)
+		if FileAccess.file_exists(spec.starter_code):
+			_check_contains("%s: the starter is a Submission" % stage.level,
+				FileAccess.get_file_as_string(spec.starter_code), "public class Submission implements Strategy")
 	_check("a level outside the campaign is open", campaign.is_unlocked("demo", is_cleared), true)
 
 
@@ -92,8 +97,12 @@ func _map() -> void:
 	_check_contains("after camp: camp shows its turns", main.get_node("Overworld/CampZone/Name").text, "4 turns")
 	_check("after camp: camp is green", main.get_node("Overworld/CampZone/Fill").color, main.CLEARED_COLOR)
 	var screen: BattleScreen = main.get_node("%BattleScreen")
+	screen.open("burrow")
+	_check("no draft: the editor shows the level's starter", screen.code_panel.source(),
+		FileAccess.get_file_as_string("res://data/starters/burrow.java"))
+	screen.open("demo")
+	_check("no starter: the editor shows CodePanel's", screen.code_panel.source(), screen.code_panel.starter)
 	screen.open("camp")
-	_check("no draft: the editor shows the starter", screen.code_panel.source(), screen.code_panel.starter)
 	Progress.save_draft("camp", "// mine")
 	screen.open("camp")
 	_check("a draft: the editor shows it", screen.code_panel.source(), "// mine")

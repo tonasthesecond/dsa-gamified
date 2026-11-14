@@ -6,6 +6,8 @@ extends Resource
 @export var title: String = ""
 ## What the player reads before the first submit: the goal and what is new here.
 @export_multiline var briefing: String = ""
+## The code the editor opens with before the player has a draft, a .java in data/starters/; empty for CodePanel's.
+@export_file("*.java") var starter_code: String = ""
 @export var rng_seed: int = 0
 @export var max_turns: int = 20
 @export var player_side: int = 0

@@ -642,7 +642,9 @@ event (2.9), a row in `docs/events.md`, and a branch in BattleDisplay.
 2. Put it in a level's side.
 
 **New level**
-1. `client/data/levels/<id>.tres`: a Level.
+1. `client/data/levels/<id>.tres`: a Level, with `starter_code` set to
+   `client/data/starters/<id>.java`: code that compiles and plays as given, with
+   the level's idea left as one TODO function (`smoke_submit` builds it).
 2. An Area2D zone in `main.tscn` with `level` metadata `<id>`.
 3. A `CampaignStage` in `data/campaign.tres` with the levels it `requires`
    (`smoke_progress` checks every zone has one).

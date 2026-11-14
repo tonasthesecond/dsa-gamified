@@ -48,6 +48,11 @@ Balance by stats, never by raw numbers in moves.
 `client/data/levels/<id>.tres`, a `Level`:
 - `title` "N. Name" and a `briefing`: the goal, what is new, an example
   command with its answer (`"attack e1 | crit 4"`).
+- `starter_code` = `res://data/starters/<id>.java`: the Goblin Camp code plus
+  this level's wiring, with the idea left as **one TODO function** whose
+  placeholder returns a wrong-but-legal answer. It must compile and play as
+  given (`smoke_submit` checks), and filling only the TODO must win, or win
+  faster.
 - `rng_seed`, `max_turns`, `shared_moves` = `pass.tres`, `block.tres`.
   Budget the student's calls (one per student unit per turn): a winning run
   under ~30, and `max_turns` × student units ≤ 100 (each is a network round
@@ -100,6 +105,7 @@ equals the recorded one.
 - [ ] same seed gives the same battle (no randomness outside `battle.rng`)
 - [ ] winning run under ~30 student calls; `max_turns` × student units ≤ 100
 - [ ] briefing names the idea and shows one example command
+- [ ] starter compiles and plays; filling only its TODO wins or wins faster
 - [ ] `docs/runner.md` rows for any new body kind or crit id
 - [ ] zone in `main.tscn` and stage in `campaign.tres`; fixtures re-recorded if the pipeline covers it
 - [ ] all smoke tests green; report any that you could not run

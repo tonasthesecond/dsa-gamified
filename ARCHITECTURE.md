@@ -109,7 +109,7 @@ the rules.
 | `TitleScreen` | planned | Continue / New game / Settings. Shows whether the server is reachable (`GET /health`). |
 | `WorldMap` (`main.tscn`, `main.gd`) | partial | Overworld with one zone per level. Built: zones open a battle; each zone is painted cleared (green, with its best turns), open, or locked, from `Progress` and `data/campaign.tres`; a locked zone can't be entered. Needed: a layout by chapter. |
 | `BattleScreen` | built | The switchboard. It wires `CodePanel`, `BattleRunner`, `ReplaySystem` and `BattleDisplay` together, autoplays the replay, and shows the briefing. |
-| `CodePanel` | partial | Editor, Submit, replay controls, errors. Built: the player's draft per level, saved on Submit and Leave and restored on open, and the progress line (2.1). Needed: Java syntax highlighting, starter code per level, jumping to a compile error's line, and the decision console (3.6). |
+| `CodePanel` | partial | Editor, Submit, replay controls, errors. Built: the player's draft per level, saved on Submit and Leave and restored on open, the level's starter code when there is no draft, and the progress line (2.1). Needed: Java syntax highlighting, jumping to a compile error's line, and the decision console (3.6). |
 | `BattleDisplay` | partial | Built: ColorRect units with labels. Needed: sprites and tweens chosen by `LookCatalog`, health bars, damage numbers, intent icons, and a `BodyView` per body (3.5). |
 | `Codex` | planned | A reference that can be opened from any screen. It covers the `Strategy` API, the state shape, every move, what Java works under TeaVM, and a page per monster met (its body, its crit, a worked example). Meeting a monster for the first time opens its page. |
 | `HoverUI` + `HoverComponent` | built | Hover popups on any Control or Area2D. |
@@ -140,7 +140,7 @@ Everything a designer changes is a `.tres`. Code is written only for a new
 |---|---|---|
 | `Move` + `Effect`s | built | A list of effects that scale off a user stat by `percent`. `crit_effects` run on a right crit answer. |
 | `UnitDef` + `Stats` | built | A kind of unit: name, stats, moves, and optionally a `body` (`Body`) and a `crit` (`Problem`). |
-| `Level`, `LevelSide`, `LevelUnit`, `LevelRule` | partial | A battle as data: sides, controllers, seed, turn limit, rules, `title`, `briefing`. Needed: `starter_code`, the path of a `.java` file in `data/starters/`. |
+| `Level`, `LevelSide`, `LevelUnit`, `LevelRule` | built | A battle as data: sides, controllers, seed, turn limit, rules, `title`, `briefing`, and `starter_code`: a `.java` in `data/starters/` that compiles and plays as given, with the level's idea left as one TODO function (the export preset includes these files). |
 | `Controller`s | built | `TelegraphController` (AI) and `StudentController`. New AIs are subclasses. |
 | `Body`s | partial | Built: `ArrayBody`, `LinkedListBody`. Planned for the campaign: `CyclicListBody`, `SortedArrayBody`, `BracketStringBody`, `TreeBody` (node table), `GraphBody` (adjacency), `GridBody`. |
 | `Problem`s | partial | Built: `MiddleValueProblem`, `MinIndexProblem`, `MedianOfAllProblem`, `LowestHpTargetProblem`. Planned: one per campaign idea (`IDEAS.md`). |

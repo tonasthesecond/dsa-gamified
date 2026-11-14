@@ -54,6 +54,7 @@ units = Array[ExtResource("7_slot")]([SubResource("E0"), SubResource("E1")])
 resource_name = "Worm Burrow: answer the middle value of each worm to crit it."
 script = ExtResource("1_level")
 title = "2. Worm Burrow"
+starter_code = "res://data/starters/burrow.java"
 briefing = "Worms are tough, and plain attacks only chip at them. Each worm's \"body\" is a linked list: {\"head\": \"n2\", \"nodes\": {\"n2\": {\"value\": 4, \"next\": \"n5\"}, ...}}. The table is not in list order, so follow next from head. Send the middle value after the command, \"attack e1 | crit 4\", for 50% more damage. A crit grows the worm a new body."
 rng_seed = 102
 max_turns = 50

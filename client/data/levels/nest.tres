@@ -59,6 +59,7 @@ units = Array[ExtResource("7_slot")]([SubResource("E0"), SubResource("E1"), SubR
 resource_name = "Swarm Nest: the index of the smallest value in each swarm is its weak point."
 script = ExtResource("1_level")
 title = "3. Swarm Nest"
+starter_code = "res://data/starters/nest.java"
 briefing = "Three swarms. A swarm's body is an array, {\"values\": [12, 3, 40, ...]}, and its weak point is the index of the smallest value: \"attack e2 | crit 1\". Each enemy's \"crit\" says which question it asks, so one decide() can answer worms and swarms alike."
 rng_seed = 103
 max_turns = 50

@@ -44,7 +44,7 @@ Other checks: `smoke_replay`, `smoke_battle_display`, `smoke_progress` (no serve
   security), `docs/runner.md` (HTTP + student state), `docs/events.md` (log),
   `DEVELOPMENT.md` (recipes).
 - Planned (see `ARCHITECTURE.md`; don't build unasked): `Codex`,
-  `BodyView`s, `LookCatalog`, starter code per level; on the server
+  `BodyView`s, `LookCatalog`; on the server
   `Sandbox` (bwrap + cgroup), compile slots, `busy`, `/health`; deploy as
   Caddy + a systemd unit (no Docker: it blocks bwrap).
 
@@ -71,8 +71,8 @@ Other checks: `smoke_replay`, `smoke_battle_display`, `smoke_progress` (no serve
 - New mechanic: an `Effect` subclass in `resources/effects/`; a new primitive
   on `Battle` only if damage/heal/block/guard can't express it.
 - New unit: `data/units/<name>.tres` with a `Stats`.
-- New level: `data/levels/<id>.tres` (a Level, with `title` and `briefing`
-  for the battle screen) + an Area2D zone in `main.tscn` with `level`
+- New level: `data/levels/<id>.tres` (a Level, with `title`, `briefing` and
+  `starter_code` = `data/starters/<id>.java`) + an Area2D zone in `main.tscn` with `level`
   metadata + a `CampaignStage` in `data/campaign.tres` + a winning and losing
   student in `tests/smoke_battle.gd`
   (`_campaign` for the campaign levels). Step by step: skill `new-level`.
