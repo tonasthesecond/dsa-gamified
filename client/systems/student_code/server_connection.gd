@@ -6,12 +6,18 @@ var _client := HTTPClient.new()
 var _host: String
 var _port: int
 var _tls: bool
+## Put before every path, e.g. "/api" behind the web host's proxy.
+var _prefix: String = ""
 
 
 func _init(server_url: String) -> void:
 	var rest := server_url.strip_edges().trim_suffix("/")
 	_tls = rest.begins_with("https://")
 	rest = rest.trim_prefix("https://").trim_prefix("http://")
+	var slash := rest.find("/")
+	if slash >= 0:
+		_prefix = rest.substr(slash)
+		rest = rest.substr(0, slash)
 	var colon := rest.rfind(":")
 	if colon >= 0:
 		_host = rest.substr(0, colon)
@@ -27,7 +33,7 @@ func post(path: String, body: String, timeout_ms: int) -> Dictionary:
 	var failure := _connect(deadline)
 	if not failure.is_empty():
 		return {"transport": failure}
-	var err := _client.request(HTTPClient.METHOD_POST, path,
+	var err := _client.request(HTTPClient.METHOD_POST, _prefix + path,
 		["Content-Type: text/plain; charset=utf-8"], body)
 	if err != OK:
 		return {"transport": "could not send to %s: %s" % [_where(path), error_string(err)]}
@@ -80,4 +86,4 @@ func _connect(deadline: int) -> String:
 
 
 func _where(path: String) -> String:
-	return "%s://%s:%d%s" % ["https" if _tls else "http", _host, _port, path.get_slice("?", 0)]
+	return "%s://%s:%d%s%s" % ["https" if _tls else "http", _host, _port, _prefix, path.get_slice("?", 0)]
