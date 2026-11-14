@@ -118,6 +118,11 @@ expect "missing semicolon: no build" "$(get "$TMP/missing_semicolon.build.json" 
 build package_line > /dev/null
 expect "package line: status" "$(get "$TMP/package_line.build.json" status)" "compile_error"
 
+build js_interop > /dev/null
+expect "js interop: status" "$(get "$TMP/js_interop.build.json" status)" "compile_error"
+expect_contains "js interop: org.teavm is not visible" \
+    "$(get "$TMP/js_interop.build.json" message)" "org.teavm.jso"
+
 b=$(build infinite_loop)
 i=$(start "$b" infinite_loop.start.json 700)
 started=$(date +%s%N)

@@ -214,6 +214,11 @@ public class Server {
     /** Returns javac's output on failure, or null if everything compiled. */
     private static String javac(Path workDir) throws IOException {
         List<String> args = new ArrayList<>();
+        // Only the build's own sources: in-process javac would otherwise see the
+        // server's classpath, where teavm-jso lets student code run raw JS in node.
+        args.add("-classpath");
+        args.add(workDir.toString());
+        args.add("-proc:none");
         args.add("-d");
         args.add(workDir.toString());
         for (Path source : javaSources(workDir)) {
