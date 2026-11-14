@@ -3,6 +3,8 @@ extends Control
 ## Wires BattleRunner, ReplaySystem, BattleDisplay and CodePanel together, and autoplays the replay.
 
 signal closed
+## The replay of a won battle reached its end.
+signal cleared(level_id: String)
 
 @export var step_seconds: float = 0.5
 
@@ -44,11 +46,40 @@ func _ready() -> void:
 			_autoplay.stop())
 	add_child(_autoplay)
 	replay.battle_loaded.connect(_autoplay.start)
+	replay.battle_loaded.connect(%Briefing.hide)
+	replay.ended.connect(func(won: bool, _reason: String) -> void:
+		if won:
+			cleared.emit(level))
 
 
-## Shows an empty battle screen for a level.
+## Shows an empty battle screen for a level, with its briefing.
 func open(level_id: String) -> void:
 	level = level_id
 	_autoplay.stop()
 	replay.reset()
 	code_panel.show_idle()
+	%Briefing.text = briefing(load("res://data/levels/%s.tres" % level_id))
+	%Briefing.show()
+
+
+## Returns what the player needs before writing code: the goal, each kind of enemy's crit, and the rules.
+static func briefing(spec: Level) -> String:
+	var lines: Array[String] = [spec.title, spec.briefing, ""]
+	var seen: Dictionary = {}
+	for side_index in spec.sides.size():
+		if side_index == spec.player_side:
+			continue
+		for slot in spec.sides[side_index].units:
+			var kind := slot.unit
+			if seen.has(kind):
+				seen[kind].append(slot.id)
+				continue
+			seen[kind] = [slot.id]
+	for kind: UnitDef in seen:
+		var line := "%s (%s)" % [kind.name, ", ".join(seen[kind])]
+		if kind.crit != null:
+			line += ". Crit \"%s\": %s" % [kind.crit.id, kind.crit.description]
+		lines.append(line)
+	for rule in spec.rules:
+		lines.append("Rule \"%s\": %s" % [rule.id, rule.description])
+	return "\n".join(lines).strip_edges()

@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="MedianOfAllProblem" format=3]
+
+[ext_resource type="Script" path="res://resources/problems/median_of_all_problem.gd" id="1_prob"]
+
+[resource]
+script = ExtResource("1_prob")
+id = "median_of_all"
+description = "The median of every value in every enemy's body; with an even count, the mean of the two middle values."

@@ -17,6 +17,8 @@ var rng: RandomNumberGenerator
 var context: Dictionary
 var turn: int = 0
 var battle_log := BattleLog.new()
+## The level's rules, judged on each move the player's side aims at an enemy; set by Level.create_battle.
+var rules: Array[LevelRule] = []
 
 var _resolving: Move = null
 
@@ -81,7 +83,7 @@ func run() -> BattleResult:
 				continue
 
 			battle_log.action(turn, actor, move, targets)
-			use(move, actor, targets)
+			use(move, actor, targets, decision.action.get("answers", {}))
 
 			if _others_wiped_out():
 				return _end(turn, true, WON)
@@ -185,21 +187,40 @@ func state_for(unit: Combatant) -> Dictionary:
 	var enemies: Array = []
 	for other in turn_order():
 		(allies if other.side == unit.side else enemies).append(_view(other))
-	return {"turn": turn, "self": _view(unit), "allies": allies, "enemies": enemies}
+	var rule_views: Array = []
+	for rule in rules:
+		rule_views.append({"id": rule.id, "description": rule.description,
+			"answer": rule.problem.takes_answer()})
+	return {"turn": turn, "self": _view(unit), "allies": allies, "enemies": enemies, "rules": rule_views}
 
 
 # --- Moves and primitives ---
 
 
 ## Runs a legal move's effects on each target in order.
-func use(move: Move, user: Combatant, targets: Array[Combatant]) -> void:
+func use(move: Move, user: Combatant, targets: Array[Combatant], answers: Dictionary = {}) -> void:
 	_resolving = move
 	for target in targets:
 		var move_context := MoveContext.new()
-		for effect in move.effects:
-			if move_context.halted:
-				break
-			effect.apply(self, user, target, move_context)
+		# Judged before anything lands, so a crit is about the body the student saw.
+		var right: Array[LevelRule] = []
+		var wrong: Array[LevelRule] = []
+		for rule in _rules_for(move, user):
+			if rule.problem.is_correct(self, user, target, answers.get(rule.id)):
+				right.append(rule)
+			else:
+				wrong.append(rule)
+		var crit := _is_crit(move, user, target, answers)
+
+		for rule in wrong:
+			_apply(rule.when_wrong, user, target, move_context)
+		_apply(move.effects, user, target, move_context)
+		if crit and not move_context.halted:
+			_apply(move.crit_effects, user, target, move_context)
+			if target.is_alive():
+				target.reroll_body(rng)
+		for rule in right:
+			_apply(rule.when_right, user, target, move_context)
 	_resolving = null
 
 
@@ -239,6 +260,27 @@ func guard(target: Combatant, amount: int) -> void:
 # --- Internals ---
 
 
+## Rules only judge the player's side: the AIs never answer, so a gate would stop every enemy hit.
+func _rules_for(move: Move, user: Combatant) -> Array[LevelRule]:
+	if move.target != Move.Target.ENEMY or user.side != player_side:
+		return []
+	return rules
+
+
+func _is_crit(move: Move, user: Combatant, target: Combatant, answers: Dictionary) -> bool:
+	var problem: Problem = target.unit.crit
+	if move.target != Move.Target.ENEMY or move.crit_effects.is_empty() or problem == null:
+		return false
+	return answers.has("crit") and problem.is_correct(self, user, target, answers.crit)
+
+
+func _apply(effects: Array[Effect], user: Combatant, target: Combatant, move_context: MoveContext) -> void:
+	for effect in effects:
+		if move_context.halted:
+			break
+		effect.apply(self, user, target, move_context)
+
+
 func _others_wiped_out() -> bool:
 	for unit in combatants:
 		if unit.side != player_side and unit.is_alive():
@@ -253,7 +295,9 @@ func _view(unit: Combatant) -> Dictionary:
 			"target": Move.TARGET_NAMES[move.target], "targets": move.target_count()})
 	return {"id": unit.id, "name": unit.display_name(), "hp": unit.hp, "maxHp": unit.max_hp,
 		"strength": unit.stats.strength, "magic": unit.stats.magic, "speed": unit.stats.speed,
-		"guard": unit.guard, "intent": unit.intent_command(), "moves": moves}
+		"guard": unit.guard, "intent": unit.intent_command(), "moves": moves,
+		"body": unit.body_value.duplicate(true) if not unit.body_value.is_empty() else null,
+		"crit": {"id": unit.unit.crit.id, "description": unit.unit.crit.description} if unit.unit.crit != null else null}
 
 
 func _end(at_turn: int, won: bool, reason: String, error: String = "") -> BattleResult:

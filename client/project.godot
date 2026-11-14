@@ -18,3 +18,4 @@ config/features=PackedStringArray("4.7")
 
 Config="*res://globals/config.gd"
 BattleRunner="*res://globals/battle_runner.gd"
+HoverUI="*res://globals/hover_ui.gd"

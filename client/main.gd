@@ -2,6 +2,7 @@ extends Node2D
 ## Overworld rig: walking into an Area2D with `level` metadata opens that battle.
 
 const SPEED := 220.0
+const CLEARED_COLOR := Color(0.3, 0.85, 0.4, 0.5)
 
 var in_battle := false
 
@@ -19,6 +20,10 @@ func _ready() -> void:
 	battle.closed.connect(func() -> void:
 		battle_layer.hide()
 		in_battle = false)
+	battle.cleared.connect(func(level: String) -> void:
+		for zone in $Overworld.get_children():
+			if zone is Area2D and zone.get_meta("level") == level:
+				zone.get_node("Fill").color = CLEARED_COLOR)
 
 
 func _physics_process(_delta: float) -> void:

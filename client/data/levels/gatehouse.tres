@@ -1,0 +1,83 @@
+[gd_resource type="Resource" script_class="Level" format=3]
+
+[ext_resource type="Script" path="res://resources/level.gd" id="1_level"]
+[ext_resource type="Script" path="res://resources/move.gd" id="2_move"]
+[ext_resource type="Resource" path="res://data/moves/pass.tres" id="3_pass"]
+[ext_resource type="Resource" path="res://data/moves/block.tres" id="4_block"]
+[ext_resource type="Script" path="res://resources/level_side.gd" id="5_side"]
+[ext_resource type="Script" path="res://resources/controllers/student_controller.gd" id="6_student"]
+[ext_resource type="Script" path="res://resources/level_unit.gd" id="7_slot"]
+[ext_resource type="Script" path="res://resources/controllers/telegraph_controller.gd" id="9_ai"]
+[ext_resource type="Resource" path="res://data/units/cleric.tres" id="u_cleric"]
+[ext_resource type="Resource" path="res://data/units/knight.tres" id="u_knight"]
+[ext_resource type="Resource" path="res://data/units/swarm.tres" id="u_swarm"]
+[ext_resource type="Resource" path="res://data/units/worm.tres" id="u_worm"]
+[ext_resource type="Script" path="res://resources/level_rule.gd" id="10_rule"]
+[ext_resource type="Resource" path="res://data/problems/median_of_all.tres" id="11_problem"]
+[ext_resource type="Script" path="res://resources/effects/effect.gd" id="12_effect"]
+[ext_resource type="Script" path="res://resources/effects/bounce_effect.gd" id="13_outcome"]
+
+[sub_resource type="Resource" id="Student"]
+script = ExtResource("6_student")
+
+[sub_resource type="Resource" id="AI"]
+script = ExtResource("9_ai")
+
+[sub_resource type="Resource" id="H0"]
+script = ExtResource("7_slot")
+id = "knight"
+unit = ExtResource("u_knight")
+
+[sub_resource type="Resource" id="H1"]
+script = ExtResource("7_slot")
+id = "cleric"
+unit = ExtResource("u_cleric")
+
+[sub_resource type="Resource" id="E0"]
+script = ExtResource("7_slot")
+id = "e1"
+unit = ExtResource("u_worm")
+
+[sub_resource type="Resource" id="E1"]
+script = ExtResource("7_slot")
+id = "e2"
+unit = ExtResource("u_swarm")
+
+[sub_resource type="Resource" id="E2"]
+script = ExtResource("7_slot")
+id = "e3"
+unit = ExtResource("u_worm")
+
+[sub_resource type="Resource" id="HeroSide"]
+script = ExtResource("5_side")
+team = "hero"
+controller = SubResource("Student")
+units = Array[ExtResource("7_slot")]([SubResource("H0"), SubResource("H1")])
+
+[sub_resource type="Resource" id="EnemySide"]
+script = ExtResource("5_side")
+team = "enemy"
+controller = SubResource("AI")
+units = Array[ExtResource("7_slot")]([SubResource("E0"), SubResource("E1"), SubResource("E2")])
+
+[sub_resource type="Resource" id="Outcome"]
+script = ExtResource("13_outcome")
+why = "The median was wrong, so the attack bounced off."
+
+[sub_resource type="Resource" id="Rule"]
+script = ExtResource("10_rule")
+id = "median"
+description = "Send the median of every value in every enemy body, or the attack bounces off."
+problem = ExtResource("11_problem")
+when_wrong = Array[ExtResource("12_effect")]([SubResource("Outcome")])
+
+[resource]
+resource_name = "Gatehouse: every attack bounces unless it names the median of every body."
+script = ExtResource("1_level")
+title = "5. Gatehouse"
+briefing = "The gate takes a toll: every attack needs the median of every value in every enemy body, or it bounces off. Send it as \"attack e1 | median 21.5\", next to a crit if you have one: \"attack e1 | crit 4 | median 21.5\". Bodies change after each crit, so compute it fresh every turn."
+rng_seed = 105
+max_turns = 50
+shared_moves = Array[ExtResource("2_move")]([ExtResource("3_pass"), ExtResource("4_block")])
+sides = Array[ExtResource("5_side")]([SubResource("HeroSide"), SubResource("EnemySide")])
+rules = Array[ExtResource("10_rule")]([SubResource("Rule")])

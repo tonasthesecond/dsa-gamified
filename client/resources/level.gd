@@ -2,6 +2,10 @@ class_name Level
 extends Resource
 ## A battle as data: sides, seed and turn limit.
 
+## Shown on the overworld and the battle screen.
+@export var title: String = ""
+## What the player reads before the first submit: the goal and what is new here.
+@export_multiline var briefing: String = ""
 @export var rng_seed: int = 0
 @export var max_turns: int = 20
 @export var player_side: int = 0
@@ -9,6 +13,8 @@ extends Resource
 @export var shared_moves: Array[Move] = []
 ## Side order breaks speed ties.
 @export var sides: Array[LevelSide] = []
+## Questions on top of the units' crits, judged on every move the player's side aims at an enemy.
+@export var rules: Array[LevelRule] = []
 
 
 ## Builds a Battle ready to run; `context` is handed to the controllers.
@@ -23,6 +29,10 @@ func create_battle(context: Dictionary = {}) -> Battle:
 			var max_hp := slot.unit.stats.hp
 			if slot.bonus_max_hp > 0:
 				max_hp += rng.randi_range(0, slot.bonus_max_hp)
-			units.append(Combatant.new(slot.id, slot.unit, index, max_hp, shared_moves))
+			var unit := Combatant.new(slot.id, slot.unit, index, max_hp, shared_moves)
+			unit.reroll_body(rng)
+			units.append(unit)
 		battle_sides.append(BattleSide.new(spec.team, spec.controller, units))
-	return Battle.new(battle_sides, player_side, max_turns, rng, context)
+	var battle := Battle.new(battle_sides, player_side, max_turns, rng, context)
+	battle.rules = rules
+	return battle

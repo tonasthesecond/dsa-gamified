@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="MiddleValueProblem" format=3]
+
+[ext_resource type="Script" path="res://resources/problems/middle_value_problem.gd" id="1_prob"]
+
+[resource]
+script = ExtResource("1_prob")
+id = "middle"
+description = "The value of the middle node, following next from head. With an even length, the second of the two middles."

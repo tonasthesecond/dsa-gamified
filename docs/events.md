@@ -32,4 +32,6 @@ unit ids from `spawn`. `move` names the move an event came from.
   multi-target move has `target` = the first and `targets` = all, in order.
 - `hp` is after the change. `amount` on `damage` is what got past the guard,
   `absorbed` what the guard took (only when > 0).
+- A crit or a level rule's bonus is one more `damage` (or other) event with the
+  same `move`; a rule that bounces a move is a `blocked` with its reason.
 - Fields are only ever added, never renamed or removed.

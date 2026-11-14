@@ -7,9 +7,14 @@
 [sub_resource type="Resource" id="Resource_mpaij"]
 script = ExtResource("2_ubso1")
 
+[sub_resource type="Resource" id="Resource_crit"]
+script = ExtResource("2_ubso1")
+percent = 50
+
 [resource]
 script = ExtResource("3_dbi10")
 id = "attack"
 name = "Attack"
-description = "Hit one enemy for 100% of your strength."
+description = "Hit one enemy for 100% of your strength. A crit adds 50%."
 effects = Array[ExtResource("1_5gdpa")]([SubResource("Resource_mpaij")])
+crit_effects = Array[ExtResource("1_5gdpa")]([SubResource("Resource_crit")])

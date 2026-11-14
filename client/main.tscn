@@ -36,48 +36,114 @@ offset_right = 12.0
 offset_bottom = 12.0
 color = Color(0.3, 0.55, 1, 1)
 
-[node name="DemoZone" type="Area2D" parent="Overworld" unique_id=210739557]
-position = Vector2(700, 200)
-metadata/level = "demo"
+[node name="CampZone" type="Area2D" parent="Overworld" unique_id=420000001]
+position = Vector2(330, 200)
+metadata/level = "camp"
 
-[node name="Shape" type="CollisionShape2D" parent="Overworld/DemoZone" unique_id=768729871]
+[node name="Shape" type="CollisionShape2D" parent="Overworld/CampZone" unique_id=420000002]
 shape = SubResource("zone_shape")
 
-[node name="Fill" type="ColorRect" parent="Overworld/DemoZone" unique_id=2034579953]
+[node name="Fill" type="ColorRect" parent="Overworld/CampZone" unique_id=420000003]
 offset_left = -48.0
 offset_top = -48.0
 offset_right = 48.0
 offset_bottom = 48.0
 color = Color(0.9, 0.3, 0.3, 0.4)
 
-[node name="Name" type="Label" parent="Overworld/DemoZone" unique_id=1832051296]
-offset_left = -48.0
+[node name="Name" type="Label" parent="Overworld/CampZone" unique_id=420000004]
+offset_left = -80.0
 offset_top = -72.0
-offset_right = 48.0
+offset_right = 80.0
 offset_bottom = -49.0
-text = "demo"
+text = "1. Goblin Camp"
 horizontal_alignment = 1
 
-[node name="SmokeZone" type="Area2D" parent="Overworld" unique_id=1498348479]
-position = Vector2(700, 450)
-metadata/level = "smoke"
+[node name="BurrowZone" type="Area2D" parent="Overworld" unique_id=420000011]
+position = Vector2(520, 430)
+metadata/level = "burrow"
 
-[node name="Shape" type="CollisionShape2D" parent="Overworld/SmokeZone" unique_id=855403315]
+[node name="Shape" type="CollisionShape2D" parent="Overworld/BurrowZone" unique_id=420000012]
 shape = SubResource("zone_shape")
 
-[node name="Fill" type="ColorRect" parent="Overworld/SmokeZone" unique_id=916370480]
+[node name="Fill" type="ColorRect" parent="Overworld/BurrowZone" unique_id=420000013]
 offset_left = -48.0
 offset_top = -48.0
 offset_right = 48.0
 offset_bottom = 48.0
-color = Color(0.9, 0.7, 0.3, 0.4)
+color = Color(0.9, 0.3, 0.3, 0.4)
 
-[node name="Name" type="Label" parent="Overworld/SmokeZone" unique_id=453452787]
-offset_left = -48.0
+[node name="Name" type="Label" parent="Overworld/BurrowZone" unique_id=420000014]
+offset_left = -80.0
 offset_top = -72.0
-offset_right = 48.0
+offset_right = 80.0
 offset_bottom = -49.0
-text = "smoke"
+text = "2. Worm Burrow"
+horizontal_alignment = 1
+
+[node name="NestZone" type="Area2D" parent="Overworld" unique_id=420000021]
+position = Vector2(710, 200)
+metadata/level = "nest"
+
+[node name="Shape" type="CollisionShape2D" parent="Overworld/NestZone" unique_id=420000022]
+shape = SubResource("zone_shape")
+
+[node name="Fill" type="ColorRect" parent="Overworld/NestZone" unique_id=420000023]
+offset_left = -48.0
+offset_top = -48.0
+offset_right = 48.0
+offset_bottom = 48.0
+color = Color(0.9, 0.3, 0.3, 0.4)
+
+[node name="Name" type="Label" parent="Overworld/NestZone" unique_id=420000024]
+offset_left = -80.0
+offset_top = -72.0
+offset_right = 80.0
+offset_bottom = -49.0
+text = "3. Swarm Nest"
+horizontal_alignment = 1
+
+[node name="PeckingOrderZone" type="Area2D" parent="Overworld" unique_id=420000031]
+position = Vector2(900, 430)
+metadata/level = "pecking_order"
+
+[node name="Shape" type="CollisionShape2D" parent="Overworld/PeckingOrderZone" unique_id=420000032]
+shape = SubResource("zone_shape")
+
+[node name="Fill" type="ColorRect" parent="Overworld/PeckingOrderZone" unique_id=420000033]
+offset_left = -48.0
+offset_top = -48.0
+offset_right = 48.0
+offset_bottom = 48.0
+color = Color(0.9, 0.3, 0.3, 0.4)
+
+[node name="Name" type="Label" parent="Overworld/PeckingOrderZone" unique_id=420000034]
+offset_left = -80.0
+offset_top = -72.0
+offset_right = 80.0
+offset_bottom = -49.0
+text = "4. Pecking Order"
+horizontal_alignment = 1
+
+[node name="GatehouseZone" type="Area2D" parent="Overworld" unique_id=420000041]
+position = Vector2(1060, 200)
+metadata/level = "gatehouse"
+
+[node name="Shape" type="CollisionShape2D" parent="Overworld/GatehouseZone" unique_id=420000042]
+shape = SubResource("zone_shape")
+
+[node name="Fill" type="ColorRect" parent="Overworld/GatehouseZone" unique_id=420000043]
+offset_left = -48.0
+offset_top = -48.0
+offset_right = 48.0
+offset_bottom = 48.0
+color = Color(0.9, 0.3, 0.3, 0.4)
+
+[node name="Name" type="Label" parent="Overworld/GatehouseZone" unique_id=420000044]
+offset_left = -80.0
+offset_top = -72.0
+offset_right = 80.0
+offset_bottom = -49.0
+text = "5. Gatehouse"
 horizontal_alignment = 1
 
 [node name="BattleLayer" type="CanvasLayer" parent="." unique_id=1621157476]
@@ -151,6 +217,20 @@ offset_top = 8.0
 offset_bottom = 31.0
 grow_horizontal = 2
 horizontal_alignment = 1
+
+[node name="Briefing" type="Label" parent="BattleLayer/BattleScreen/Stage" unique_id=420000101]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 80.0
+offset_top = 40.0
+offset_right = -80.0
+offset_bottom = -16.0
+grow_horizontal = 2
+grow_vertical = 2
+autowrap_mode = 3
 
 [node name="CodePanel" parent="BattleLayer/BattleScreen" unique_id=716229672 instance=ExtResource("4")]
 anchors_preset = -1

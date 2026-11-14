@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="MinIndexProblem" format=3]
+
+[ext_resource type="Script" path="res://resources/problems/min_index_problem.gd" id="1_prob"]
+
+[resource]
+script = ExtResource("1_prob")
+id = "min_index"
+description = "The index of the smallest value, counting from 0."

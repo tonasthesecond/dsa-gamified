@@ -138,6 +138,9 @@ Rules that are data (moves, units, levels, AIs) are Resources in
 | **BattleLog** | `systems/battle/battle_log.gd` | Builds the events. Only `Battle` writes to it. |
 | **BattleResult** | `systems/battle/battle_result.gd` | `won`, `reason`, `error`, `events`; `abort` if the battle could not finish at all. |
 | **Level** | `resources/level.gd` + `LevelSide`, `LevelUnit` | A battle written down as data: sides, their controllers and units, `rng_seed`, `max_turns`, `player_side`, `shared_moves`. `create_battle(context)` turns it into a Battle. |
+| **Body** | `resources/bodies/body.gd` + `ArrayBody`, `LinkedListBody` | A data structure a kind of unit carries: `generate(rng)` builds it as JSON-like data for the state, `values(body)` lists what it holds. |
+| **Problem** | `resources/problems/problem.gd` + `MiddleValueProblem`, `MinIndexProblem`, `MedianOfAllProblem`, `LowestHpTargetProblem` | A question Godot answers itself: `expected(battle, user, target)` and `is_correct(...)`. A UnitDef's `crit` and a LevelRule both use one. |
+| **LevelRule** | `resources/level_rule.gd` | A level's own question: `id` (the answer's label), a `problem`, and the effects for `when_wrong` (a gate) and `when_right` (a bonus). |
 
 ### 2.2 What happens in `Battle.run`
 
@@ -159,7 +162,8 @@ Rules that are data (moves, units, levels, AIs) are Resources in
       loses with that message; the AI's move fizzles (its target died first)
       and the battle goes on.
    4. `use` runs the move's effects. The effects call the primitives, and the
-      primitives log the events.
+      primitives log the events. With answers or rules in play, the order per
+      target is in 2.11.
    5. After every action: if every other side is wiped out the player's side
       won; if the player's side is, it lost.
 4. Out of turns is a loss: "Turn limit reached".
@@ -389,6 +393,46 @@ with `get`. Removing or renaming one breaks every submission that reads it.
 
 ---
 
+### 2.11 Bodies, crits and level rules
+
+A kind of unit can carry a data structure (its **body**) and a question about
+it (its **crit**), set on the UnitDef. Every unit of that kind asks the same
+question; only the generated data differs. A level can add its own **rules**
+on top. The student answers in the same command, after `|`:
+`"attack e1 | crit 4 | median 5.5"` (`docs/runner.md`). Java passes it through
+as a String and never knows a question exists.
+
+- `Level.create_battle` rolls each body from the level's rng, only for units
+  that have one, so levels without bodies draw exactly what they did before.
+  The value lives on `Combatant.body_value`, never on the Resource.
+- `StudentController.parse` splits off the `|` sections into
+  `action.answers`. An answer that isn't JSON is kept as text, so a bad answer
+  is only wrong, never an error.
+- `Battle.use`, per target: judge every rule and the crit first (on the body
+  the student saw), then run the wrong rules' `when_wrong`, the move's
+  `effects`, the move's `crit_effects` if the crit was right (then re-roll the
+  target's body from `battle.rng`), and the right rules' `when_right`. A
+  bounce anywhere halts the rest.
+- A move crits only on a target with a `crit` and only if the move has
+  `crit_effects`; the size of a crit is per move. Rules judge only the
+  player's side: the AIs never answer.
+
+**A new question** is a `Problem` subclass in `resources/problems/` with
+`expected` (or `is_correct` and `takes_answer() == false` for one judged from
+the move alone), and a `.tres` in `data/problems/` with its `id` and
+`description`. Its answer is compared after `Problem.normalized`, so 2 and 2.0
+match.
+
+**A new structure** is a `Body` subclass in `resources/bodies/` with
+`generate` (drawing only from the rng it is given) and `values`, and a row in
+`docs/runner.md`.
+
+**A gate** is a LevelRule whose `when_wrong` has a `BounceEffect`; **a bonus**
+one whose `when_right` has a `DamageEffect`. `data/levels/median_gate_test.tres`
+and `lowest_first_test.tres` are one of each.
+
+---
+
 ## 3. The rest of the Godot client
 
 Open `client/project.godot` in Godot 4.7, start the server, press F5.
@@ -600,6 +644,16 @@ event (2.9), a row in `docs/events.md`, and a branch in BattleDisplay.
 1. `client/data/levels/<id>.tres`: a Level.
 2. An Area2D zone in `main.tscn` with `level` metadata `<id>`.
 3. A winning and a losing GDScript student in `tests/smoke_battle.gd`.
+
+**New monster with a question**
+1. `client/data/units/<name>.tres`: a UnitDef with a `body` and a `crit` problem.
+2. If the structure or question is new: a `Body` or `Problem` subclass (2.11)
+   and a row in `docs/runner.md`.
+3. A test level, and a right, a wrong and no answer in `tests/smoke_battle.gd`'s `_crits`.
+
+**New level rule**
+1. A LevelRule in the level's `rules`: `id`, `problem`, `when_wrong` or `when_right`.
+2. A check in `tests/smoke_battle.gd`'s `_level_rules`.
 
 **New AI**
 1. `client/resources/controllers/<name>_controller.gd`: a Controller subclass.

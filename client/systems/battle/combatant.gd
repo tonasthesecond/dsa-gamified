@@ -14,6 +14,8 @@ var moves: Array[Move] = []
 var guard: int = 0
 ## {"move": Move, "targets": Array[Combatant]}, or empty.
 var intent: Dictionary = {}
+## What the UnitDef's body generated for this fight; empty without a body. Re-rolled after each crit.
+var body_value: Dictionary = {}
 
 
 func _init(p_id: String, p_unit: UnitDef, p_side: int, p_max_hp: int, shared_moves: Array[Move]) -> void:
@@ -43,6 +45,17 @@ func find_move(move_id: Variant) -> Move:
 		if move.id == move_id:
 			return move
 	return null
+
+
+## Generates a new body; does nothing, and draws nothing from `rng`, for a unit without one.
+func reroll_body(rng: RandomNumberGenerator) -> void:
+	if unit.body != null:
+		body_value = unit.body.generate(rng)
+
+
+## Returns the values in this unit's body, in the body's own order; empty without one.
+func body_values() -> Array:
+	return unit.body.values(body_value) if unit.body != null else []
 
 
 ## Returns the intent as a command, such as "attack knight", or null.

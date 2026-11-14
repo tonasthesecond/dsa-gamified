@@ -14,6 +14,8 @@ const TARGET_NAMES: Array[String] = ["enemy", "ally", "self"]
 @export var max_targets: int = 1
 ## Run in order, once per target.
 @export var effects: Array[Effect] = []
+## Run after `effects` on a target whose crit the student answered right; empty means this move never crits.
+@export var crit_effects: Array[Effect] = []
 
 
 ## Returns how many ids may follow the move in a command: 0 for a SELF move.

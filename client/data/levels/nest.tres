@@ -1,0 +1,66 @@
+[gd_resource type="Resource" script_class="Level" format=3]
+
+[ext_resource type="Script" path="res://resources/level.gd" id="1_level"]
+[ext_resource type="Script" path="res://resources/move.gd" id="2_move"]
+[ext_resource type="Resource" path="res://data/moves/pass.tres" id="3_pass"]
+[ext_resource type="Resource" path="res://data/moves/block.tres" id="4_block"]
+[ext_resource type="Script" path="res://resources/level_side.gd" id="5_side"]
+[ext_resource type="Script" path="res://resources/controllers/student_controller.gd" id="6_student"]
+[ext_resource type="Script" path="res://resources/level_unit.gd" id="7_slot"]
+[ext_resource type="Script" path="res://resources/controllers/telegraph_controller.gd" id="9_ai"]
+[ext_resource type="Resource" path="res://data/units/cleric.tres" id="u_cleric"]
+[ext_resource type="Resource" path="res://data/units/knight.tres" id="u_knight"]
+[ext_resource type="Resource" path="res://data/units/swarm.tres" id="u_swarm"]
+
+[sub_resource type="Resource" id="Student"]
+script = ExtResource("6_student")
+
+[sub_resource type="Resource" id="AI"]
+script = ExtResource("9_ai")
+
+[sub_resource type="Resource" id="H0"]
+script = ExtResource("7_slot")
+id = "knight"
+unit = ExtResource("u_knight")
+
+[sub_resource type="Resource" id="H1"]
+script = ExtResource("7_slot")
+id = "cleric"
+unit = ExtResource("u_cleric")
+
+[sub_resource type="Resource" id="E0"]
+script = ExtResource("7_slot")
+id = "e1"
+unit = ExtResource("u_swarm")
+
+[sub_resource type="Resource" id="E1"]
+script = ExtResource("7_slot")
+id = "e2"
+unit = ExtResource("u_swarm")
+
+[sub_resource type="Resource" id="E2"]
+script = ExtResource("7_slot")
+id = "e3"
+unit = ExtResource("u_swarm")
+
+[sub_resource type="Resource" id="HeroSide"]
+script = ExtResource("5_side")
+team = "hero"
+controller = SubResource("Student")
+units = Array[ExtResource("7_slot")]([SubResource("H0"), SubResource("H1")])
+
+[sub_resource type="Resource" id="EnemySide"]
+script = ExtResource("5_side")
+team = "enemy"
+controller = SubResource("AI")
+units = Array[ExtResource("7_slot")]([SubResource("E0"), SubResource("E1"), SubResource("E2")])
+
+[resource]
+resource_name = "Swarm Nest: the index of the smallest value in each swarm is its weak point."
+script = ExtResource("1_level")
+title = "3. Swarm Nest"
+briefing = "Three swarms. A swarm's body is an array, {\"values\": [12, 3, 40, ...]}, and its weak point is the index of the smallest value: \"attack e2 | crit 1\". Each enemy's \"crit\" says which question it asks, so one decide() can answer worms and swarms alike."
+rng_seed = 103
+max_turns = 50
+shared_moves = Array[ExtResource("2_move")]([ExtResource("3_pass"), ExtResource("4_block")])
+sides = Array[ExtResource("5_side")]([SubResource("HeroSide"), SubResource("EnemySide")])

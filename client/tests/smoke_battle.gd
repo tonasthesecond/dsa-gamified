@@ -12,20 +12,26 @@ func _ready() -> void:
 	_student_errors()
 	_seeded()
 	_swapped()
+	_crits()
+	_level_rules()
+	_campaign()
 	print("ALL BATTLE CHECKS PASSED" if _failures == 0 else "%d BATTLE CHECK(S) FAILED" % _failures)
 	get_tree().quit(1 if _failures > 0 else 0)
 
 
 ## The recorded fixtures must match the same strategies written in GDScript.
 func _pipeline_recordings() -> void:
-	for level_id: String in ["smoke", "demo"]:
+	var students := {"smoke": _first_enemy, "demo": _demo_win, "worm_test": _worm_crit}
+	for level_id: String in ["camp", "burrow", "nest", "pecking_order", "gatehouse"]:
+		students[level_id] = _campaign_student.bind("lowest")
+	for level_id: String in students:
 		var path := "res://tests/fixtures/%s.json" % level_id
 		if not FileAccess.file_exists(path):
 			print("skipped: %s is not recorded; see tests/smoke_submit.gd" % path)
 			continue
 		var recorded: Dictionary = ReplaySystem._whole_numbers_to_int(
 			JSON.parse_string(FileAccess.get_file_as_string(path)))
-		var result := _battle(level_id, _first_enemy if level_id == "smoke" else _demo_win).run()
+		var result := _battle(level_id, students[level_id]).run()
 		_check_events("%s, recorded through the server" % level_id, result.events, recorded.result.events)
 
 
@@ -192,6 +198,118 @@ func _swapped() -> void:
 	print("  swapped: %s" % result.reason)
 
 
+## A right crit answer adds the move's crit effects; a wrong, missing or garbled one is a plain hit, never an error.
+func _crits() -> void:
+	for level_id: String in ["worm_test", "swarm_test"]:
+		var answer := _worm_answer if level_id == "worm_test" else _swarm_answer
+		var commands := {
+			"right": func(s: Dictionary) -> String: return "attack e1 | crit %s" % JSON.stringify(answer.call(s.enemies[0].body)),
+			"wrong": func(s: Dictionary) -> String: return "attack e1 | crit %d" % (answer.call(s.enemies[0].body) + 1000),
+			"none": func(_s: Dictionary) -> String: return "attack e1",
+			"garbled": func(_s: Dictionary) -> String: return "attack e1 | crit [oops",
+		}
+		var damage := {}
+		for kind: String in commands:
+			var command: Callable = commands[kind]
+			var result := _battle(level_id, func(s: Dictionary) -> Dictionary: return {"action": command.call(s)}).run()
+			_check("%s, %s answer: no error" % [level_id, kind], result.error, "")
+			damage[kind] = _damage_on(result, "e1", 1)
+		_check("%s: right 6 + 3 crit, wrong 6, none 6, garbled 6" % level_id,
+			[damage.right, damage.wrong, damage.none, damage.garbled], [9, 6, 6, 6])
+
+		# Right every turn: the body re-rolls after each crit, and the student keeps up.
+		var bodies: Array = []
+		var every := _battle(level_id, func(s: Dictionary) -> Dictionary:
+			bodies.append(s.enemies[0].body)
+			return {"action": "attack e1 | crit %s" % JSON.stringify(answer.call(s.enemies[0].body))}).run()
+		_check("%s: a crit every turn" % level_id, [1, 2, 3].map(func(t: int) -> int: return _damage_on(every, "e1", t)), [9, 9, 9])
+		_check("%s: the body re-rolls after a crit" % level_id, bodies[0] != bodies[1] and bodies[1] != bodies[2], true)
+		var again := _battle(level_id, func(s: Dictionary) -> Dictionary:
+			return {"action": "attack e1 | crit %s" % JSON.stringify(answer.call(s.enemies[0].body))}).run()
+		_check("%s: the same code gives the same battle" % level_id,
+			JSON.stringify(every.to_dict()) == JSON.stringify(again.to_dict()), true)
+
+	var states: Array = []
+	_battle("worm_test", func(s: Dictionary) -> Dictionary:
+		states.append(s)
+		return {"action": "pass"}).run()
+	var worm: Dictionary = states[0].enemies[0]
+	_check("the state shows a body and its crit", [worm.body.kind, worm.crit.id], ["linked_list", "middle"])
+	_check("a unit without a body shows null", [states[0].self.body, states[0].self.crit], [null, null])
+	_check("a level without rules shows none", states[0].rules, [])
+	var demo_state: Array = []
+	_battle("demo", func(s: Dictionary) -> Dictionary:
+		demo_state.append(s)
+		return {"action": "pass"}).run()
+	_check("existing units have no body", demo_state[0].enemies.map(func(e: Dictionary) -> Variant: return e.body), [null, null, null])
+
+
+## A gate bounces a move whose answer is wrong; a bonus adds to a right one. Only the player's side is judged.
+func _level_rules() -> void:
+	var median := func(s: Dictionary) -> String: return JSON.stringify(_median_of_bodies(s))
+	var gate := {
+		"right": func(s: Dictionary) -> String: return "attack e1 | median " + median.call(s),
+		"wrong": func(s: Dictionary) -> String: return "attack e1 | median %s" % (_median_of_bodies(s) + 1000),
+		"none": func(_s: Dictionary) -> String: return "attack e1",
+		"with a crit": func(s: Dictionary) -> String:
+			return "attack e1 | crit %d | median %s" % [_worm_answer(s.enemies[0].body), median.call(s)],
+	}
+	var outcomes := {}
+	for kind: String in gate:
+		var command: Callable = gate[kind]
+		var result := _battle("median_gate_test", func(s: Dictionary) -> Dictionary: return {"action": command.call(s)}).run()
+		_check("median gate, %s: no error" % kind, result.error, "")
+		var bounced := result.events.any(func(e: Dictionary) -> bool: return e.type == "blocked" and e.turn == 1)
+		outcomes[kind] = [_damage_on(result, "e1", 1), bounced]
+	_check("median gate: right lands, wrong and none bounce, a crit stacks",
+		[outcomes.right, outcomes.wrong, outcomes.none, outcomes["with a crit"]], [[6, false], [0, true], [0, true], [9, false]])
+	var bounce := _battle("median_gate_test", func(_s: Dictionary) -> Dictionary: return {"action": "attack e1"}).run()
+	var blocked: Dictionary = bounce.events.filter(func(e: Dictionary) -> bool: return e.type == "blocked")[0]
+	_check("median gate: the bounce names the move and says why", [blocked.unit, blocked.move, blocked.reason],
+		["e1", "attack", "The median was wrong, so the attack bounced off."])
+	_check("median gate: the enemies still hit back", _damage_on(bounce, "hero", 1), 4)
+	var rule_state: Array = []
+	_battle("median_gate_test", func(s: Dictionary) -> Dictionary:
+		rule_state.append(s)
+		return {"action": "pass"}).run()
+	_check("the state lists the rules", rule_state[0].rules.map(func(r: Dictionary) -> Array: return [r.id, r.answer]),
+		[["median", true]])
+
+	var lowest := _battle("lowest_first_test", func(_s: Dictionary) -> Dictionary: return {"action": "attack e1"}).run()
+	var other := _battle("lowest_first_test", func(_s: Dictionary) -> Dictionary: return {"action": "attack e2"}).run()
+	_check("lowest first: the goblin (least hp) takes 6 + 3, the worm 6", [_damage_on(lowest, "e1", 1), _damage_on(other, "e2", 1)], [9, 6])
+	_check("lowest first: no answer needed, no error", [lowest.error, other.error], ["", ""])
+	_check("lowest first: the enemies get no bonus", _damage_on(lowest, "hero", 1), 3 + 2)
+
+
+## Each campaign level is won faster with its new idea; the gatehouse is not won without it at all.
+func _campaign() -> void:
+	var starter := func(s: Dictionary) -> Dictionary: return {"action": "attack " + s.enemies[0].id}
+	_check("camp: the starter code wins", _battle("camp", starter).run().won, true)
+	for level_id: String in ["burrow", "nest", "pecking_order"]:
+		var slow := _battle(level_id, _campaign_student.bind("answers" if level_id == "pecking_order" else "naive")).run()
+		var fast := _battle(level_id, _campaign_student.bind("lowest")).run()
+		_check("%s: wins with and without its idea" % level_id, [slow.won, fast.won], [true, true])
+		_check("%s: its idea wins in fewer turns (%d vs %d)" % [level_id, _turns(fast), _turns(slow)],
+			_turns(fast) < _turns(slow), true)
+	_check("gatehouse: no median, no win", _battle("gatehouse", _campaign_student.bind("naive")).run().won, false)
+	_check("gatehouse: the median wins", _battle("gatehouse", _campaign_student.bind("lowest")).run().won, true)
+
+
+## Returns the turn a battle ended on.
+func _turns(result: BattleResult) -> int:
+	return result.events[-1].get("turn", 0)
+
+
+## Returns the hp a unit lost on one turn, summed over every damage event.
+func _damage_on(result: BattleResult, unit_id: String, at_turn: int) -> int:
+	var total := 0
+	for event in result.events:
+		if event.type == "damage" and event.unit == unit_id and event.turn == at_turn:
+			total += event.amount
+	return total
+
+
 func _battle(level_id: String, decide: Callable) -> Battle:
 	var level: Level = load("res://data/levels/%s.tres" % level_id)
 	return level.create_battle({StudentController.CONTEXT_KEY: ScriptedStudentCode.new(decide)})
@@ -240,6 +358,63 @@ func _borrows_heal(state: Dictionary) -> Dictionary:
 func _heals_enemy(state: Dictionary) -> Dictionary:
 	var enemy: String = state.enemies[0].id
 	return {"action": ("heal " if _knows(state.self, "heal") else "attack ") + enemy}
+
+
+## fixtures/worm_crit.java: attacks the worm with its middle value every turn.
+func _worm_crit(state: Dictionary) -> Dictionary:
+	return {"action": "attack e1 | crit %d" % _worm_answer(state.enemies[0].body)}
+
+
+## Follows next from head, as a student has to, and returns the middle value.
+func _worm_answer(body: Dictionary) -> int:
+	var found := _follow(body)
+	return found[found.size() / 2]
+
+
+func _swarm_answer(body: Dictionary) -> int:
+	var found: Array = body.values
+	return found.find(found.min())
+
+
+func _follow(body: Dictionary) -> Array:
+	var found: Array = []
+	var at: Variant = body.head
+	while at != null:
+		found.append(body.nodes[at].value)
+		at = body.nodes[at].next
+	return found
+
+
+func _median_of_bodies(state: Dictionary) -> float:
+	var found: Array = []
+	for enemy: Dictionary in state.enemies:
+		found.append_array(_follow(enemy.body) if enemy.body.kind == "linked_list" else enemy.body.values)
+	found.sort()
+	var half := found.size() / 2
+	return found[half] if found.size() % 2 == 1 else (found[half - 1] + found[half]) / 2.0
+
+
+## The cleric heals anyone under half hp; the rest attack, "naive" the first enemy, "answers" it with every answer, "lowest" the least hp with every answer.
+func _campaign_student(state: Dictionary, kind: String) -> Dictionary:
+	var me: Dictionary = state.self
+	if _knows(me, "heal"):
+		for ally: Dictionary in state.allies + [me]:
+			if ally.hp * 2 < ally.maxHp:
+				return {"action": "heal " + ally.id}
+	var target: Dictionary = state.enemies[0]
+	if kind == "lowest":
+		for enemy: Dictionary in state.enemies:
+			if enemy.hp < target.hp:
+				target = enemy
+	var command: String = "attack " + target.id
+	if kind == "naive":
+		return {"action": command}
+	if target.crit != null:
+		command += " | crit %d" % (_worm_answer(target.body) if target.crit.id == "middle" else _swarm_answer(target.body))
+	for rule: Dictionary in state.rules:
+		if rule.id == "median":
+			command += " | median " + JSON.stringify(_median_of_bodies(state))
+	return {"action": command}
 
 
 func _knows(unit: Dictionary, move_id: String) -> bool:

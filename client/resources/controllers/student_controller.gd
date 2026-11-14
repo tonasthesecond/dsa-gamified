@@ -31,12 +31,30 @@ func act(battle: Battle, unit: Combatant) -> Dictionary:
 static func parse(command: Variant, who: String) -> Dictionary:
 	if not command is String:
 		return {"error": "%s returned something that is not a String." % who}
+	var sections: PackedStringArray = (command as String).split("|")
 	var words: Array = []
-	for found in RegEx.create_from_string("\\S+").search_all(command):
+	for found in RegEx.create_from_string("\\S+").search_all(sections[0]):
 		words.append(found.get_string())
 	if words.is_empty():
 		return {"error": "%s returned an empty command. Return \"pass\" to do nothing." % who}
-	return {"action": {"move": words[0], "targets": words.slice(1)}}
+	var action := {"move": words[0], "targets": words.slice(1)}
+	if sections.size() > 1:
+		action.answers = answers(sections.slice(1))
+	return {"action": action}
+
+
+## Returns "crit 2" and "median 5.5" sections as {label: answer}. An answer is read as JSON, else kept as its text, so a bad one is only wrong, never an error.
+static func answers(sections: PackedStringArray) -> Dictionary:
+	var found := {}
+	var pattern := RegEx.create_from_string("^(\\S+)\\s*(.*)$")
+	for section in sections:
+		var parts := pattern.search(section.strip_edges())
+		if parts == null:
+			continue
+		var text := parts.get_string(2)
+		var json := JSON.new()
+		found[parts.get_string(1)] = null if text.is_empty() else (json.data if json.parse(text) == OK else text)
+	return found
 
 
 ## Returns a runner error as one sentence for the player.

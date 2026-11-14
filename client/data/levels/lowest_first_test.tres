@@ -1,0 +1,70 @@
+[gd_resource type="Resource" script_class="Level" format=3]
+
+[ext_resource type="Script" path="res://resources/level.gd" id="1_level"]
+[ext_resource type="Script" path="res://resources/move.gd" id="2_move"]
+[ext_resource type="Resource" path="res://data/moves/pass.tres" id="3_pass"]
+[ext_resource type="Resource" path="res://data/moves/block.tres" id="4_block"]
+[ext_resource type="Script" path="res://resources/level_side.gd" id="5_side"]
+[ext_resource type="Script" path="res://resources/controllers/student_controller.gd" id="6_student"]
+[ext_resource type="Script" path="res://resources/level_unit.gd" id="7_slot"]
+[ext_resource type="Resource" path="res://data/units/hero.tres" id="8_hero"]
+[ext_resource type="Script" path="res://resources/controllers/telegraph_controller.gd" id="9_ai"]
+[ext_resource type="Resource" path="res://data/units/goblin.tres" id="u0_goblin"]
+[ext_resource type="Resource" path="res://data/units/worm.tres" id="u1_worm"]
+[ext_resource type="Script" path="res://resources/level_rule.gd" id="10_rule"]
+[ext_resource type="Resource" path="res://data/problems/lowest_hp_target.tres" id="11_problem"]
+[ext_resource type="Script" path="res://resources/effects/effect.gd" id="12_effect"]
+[ext_resource type="Script" path="res://resources/effects/damage_effect.gd" id="13_outcome"]
+
+[sub_resource type="Resource" id="Student"]
+script = ExtResource("6_student")
+
+[sub_resource type="Resource" id="HeroSlot"]
+script = ExtResource("7_slot")
+id = "hero"
+unit = ExtResource("8_hero")
+
+[sub_resource type="Resource" id="HeroSide"]
+script = ExtResource("5_side")
+team = "hero"
+controller = SubResource("Student")
+units = Array[ExtResource("7_slot")]([SubResource("HeroSlot")])
+
+[sub_resource type="Resource" id="AI"]
+script = ExtResource("9_ai")
+
+[sub_resource type="Resource" id="Slot_e1"]
+script = ExtResource("7_slot")
+id = "e1"
+unit = ExtResource("u0_goblin")
+
+[sub_resource type="Resource" id="Slot_e2"]
+script = ExtResource("7_slot")
+id = "e2"
+unit = ExtResource("u1_worm")
+
+[sub_resource type="Resource" id="EnemySide"]
+script = ExtResource("5_side")
+team = "enemy"
+controller = SubResource("AI")
+units = Array[ExtResource("7_slot")]([SubResource("Slot_e1"), SubResource("Slot_e2")])
+
+[sub_resource type="Resource" id="Outcome"]
+script = ExtResource("13_outcome")
+percent = 50
+
+[sub_resource type="Resource" id="Rule"]
+script = ExtResource("10_rule")
+id = "lowest"
+description = "Hit the enemy with the least hp for 50% more of your strength."
+problem = ExtResource("11_problem")
+when_right = Array[ExtResource("12_effect")]([SubResource("Outcome")])
+
+[resource]
+resource_name = "TEST ONLY. Hitting the enemy with the least hp adds 50% of your strength."
+script = ExtResource("1_level")
+rng_seed = 14
+max_turns = 1
+shared_moves = Array[ExtResource("2_move")]([ExtResource("3_pass"), ExtResource("4_block")])
+sides = Array[ExtResource("5_side")]([SubResource("HeroSide"), SubResource("EnemySide")])
+rules = Array[ExtResource("10_rule")]([SubResource("Rule")])

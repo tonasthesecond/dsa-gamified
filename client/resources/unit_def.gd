@@ -7,3 +7,7 @@ extends Resource
 @export var stats: Stats
 ## TelegraphController uses the first.
 @export var moves: Array[Move] = []
+## The data structure this kind of unit shows the student, or null for a plain unit.
+@export var body: Body
+## The question about the body whose right answer makes a hit on this unit a crit.
+@export var crit: Problem

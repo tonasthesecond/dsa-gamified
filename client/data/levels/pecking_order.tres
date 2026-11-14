@@ -1,0 +1,92 @@
+[gd_resource type="Resource" script_class="Level" format=3]
+
+[ext_resource type="Script" path="res://resources/level.gd" id="1_level"]
+[ext_resource type="Script" path="res://resources/move.gd" id="2_move"]
+[ext_resource type="Resource" path="res://data/moves/pass.tres" id="3_pass"]
+[ext_resource type="Resource" path="res://data/moves/block.tres" id="4_block"]
+[ext_resource type="Script" path="res://resources/level_side.gd" id="5_side"]
+[ext_resource type="Script" path="res://resources/controllers/student_controller.gd" id="6_student"]
+[ext_resource type="Script" path="res://resources/level_unit.gd" id="7_slot"]
+[ext_resource type="Script" path="res://resources/controllers/telegraph_controller.gd" id="9_ai"]
+[ext_resource type="Resource" path="res://data/units/cleric.tres" id="u_cleric"]
+[ext_resource type="Resource" path="res://data/units/goblin.tres" id="u_goblin"]
+[ext_resource type="Resource" path="res://data/units/knight.tres" id="u_knight"]
+[ext_resource type="Resource" path="res://data/units/slime.tres" id="u_slime"]
+[ext_resource type="Resource" path="res://data/units/wraith.tres" id="u_wraith"]
+[ext_resource type="Script" path="res://resources/level_rule.gd" id="10_rule"]
+[ext_resource type="Resource" path="res://data/problems/lowest_hp_target.tres" id="11_problem"]
+[ext_resource type="Script" path="res://resources/effects/effect.gd" id="12_effect"]
+[ext_resource type="Script" path="res://resources/effects/damage_effect.gd" id="13_outcome"]
+
+[sub_resource type="Resource" id="Student"]
+script = ExtResource("6_student")
+
+[sub_resource type="Resource" id="AI"]
+script = ExtResource("9_ai")
+
+[sub_resource type="Resource" id="H0"]
+script = ExtResource("7_slot")
+id = "knight"
+unit = ExtResource("u_knight")
+
+[sub_resource type="Resource" id="H1"]
+script = ExtResource("7_slot")
+id = "cleric"
+unit = ExtResource("u_cleric")
+
+[sub_resource type="Resource" id="E0"]
+script = ExtResource("7_slot")
+id = "e1"
+unit = ExtResource("u_goblin")
+bonus_max_hp = 6
+
+[sub_resource type="Resource" id="E1"]
+script = ExtResource("7_slot")
+id = "e2"
+unit = ExtResource("u_wraith")
+bonus_max_hp = 6
+
+[sub_resource type="Resource" id="E2"]
+script = ExtResource("7_slot")
+id = "e3"
+unit = ExtResource("u_goblin")
+bonus_max_hp = 6
+
+[sub_resource type="Resource" id="E3"]
+script = ExtResource("7_slot")
+id = "e4"
+unit = ExtResource("u_slime")
+
+[sub_resource type="Resource" id="HeroSide"]
+script = ExtResource("5_side")
+team = "hero"
+controller = SubResource("Student")
+units = Array[ExtResource("7_slot")]([SubResource("H0"), SubResource("H1")])
+
+[sub_resource type="Resource" id="EnemySide"]
+script = ExtResource("5_side")
+team = "enemy"
+controller = SubResource("AI")
+units = Array[ExtResource("7_slot")]([SubResource("E0"), SubResource("E1"), SubResource("E2"), SubResource("E3")])
+
+[sub_resource type="Resource" id="Outcome"]
+script = ExtResource("13_outcome")
+percent = 50
+
+[sub_resource type="Resource" id="Rule"]
+script = ExtResource("10_rule")
+id = "lowest"
+description = "Hit the enemy with the least hp for 50% more of your strength."
+problem = ExtResource("11_problem")
+when_right = Array[ExtResource("12_effect")]([SubResource("Outcome")])
+
+[resource]
+resource_name = "Pecking Order: hitting the weakest enemy first hits harder."
+script = ExtResource("1_level")
+title = "4. Pecking Order"
+briefing = "No bodies here, and no answer to send: this level's rule rewards whoever you hit, not what you say. Hit the enemy with the least hp and the blow lands 50% harder. The order of state.get(\"enemies\") is by speed, not by hp."
+rng_seed = 104
+max_turns = 50
+shared_moves = Array[ExtResource("2_move")]([ExtResource("3_pass"), ExtResource("4_block")])
+sides = Array[ExtResource("5_side")]([SubResource("HeroSide"), SubResource("EnemySide")])
+rules = Array[ExtResource("10_rule")]([SubResource("Rule")])

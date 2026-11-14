@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="UnitDef" format=3]
+
+[ext_resource type="Script" path="res://resources/move.gd" id="1_move"]
+[ext_resource type="Resource" path="res://data/moves/attack.tres" id="2_attack"]
+[ext_resource type="Script" path="res://resources/unit_def.gd" id="3_unit"]
+[ext_resource type="Script" path="res://resources/stats.gd" id="4_stats"]
+[ext_resource type="Script" path="res://resources/bodies/linked_list_body.gd" id="5_body"]
+[ext_resource type="Resource" path="res://data/problems/middle_value.tres" id="6_crit"]
+
+[sub_resource type="Resource" id="Stats_1"]
+script = ExtResource("4_stats")
+hp = 30
+strength = 2
+magic = 0
+speed = 1
+
+[sub_resource type="Resource" id="Body_1"]
+script = ExtResource("5_body")
+
+[resource]
+script = ExtResource("3_unit")
+name = "Worm"
+stats = SubResource("Stats_1")
+moves = Array[ExtResource("1_move")]([ExtResource("2_attack")])
+body = SubResource("Body_1")
+crit = ExtResource("6_crit")

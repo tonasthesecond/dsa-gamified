@@ -4,6 +4,12 @@ extends Node
 const CASES := [
 	["smoke", "res://tests/fixtures/Submission.java", "res://tests/fixtures/smoke.json"],
 	["demo", "res://tests/fixtures/demo_win.java", "res://tests/fixtures/demo.json"],
+	["worm_test", "res://tests/fixtures/worm_crit.java", "res://tests/fixtures/worm_test.json"],
+	["camp", "res://tests/fixtures/campaign.java", "res://tests/fixtures/camp.json"],
+	["burrow", "res://tests/fixtures/campaign.java", "res://tests/fixtures/burrow.json"],
+	["nest", "res://tests/fixtures/campaign.java", "res://tests/fixtures/nest.json"],
+	["pecking_order", "res://tests/fixtures/campaign.java", "res://tests/fixtures/pecking_order.json"],
+	["gatehouse", "res://tests/fixtures/campaign.java", "res://tests/fixtures/gatehouse.json"],
 ]
 
 

@@ -25,15 +25,61 @@ State sample (`server/tests/state.json` is a full one):
 ```json
 {"turn": 1,
  "self":    {"id":"knight","name":"Knight","hp":34,"maxHp":34,"strength":6,"magic":0,"speed":4,"guard":0,"intent":null,
-             "moves":[{"id":"attack","name":"Attack","description":"Hit one enemy for 100% of your strength.","target":"enemy","targets":1}, ...]},
+             "moves":[{"id":"attack","name":"Attack","description":"Hit one enemy for 100% of your strength.","target":"enemy","targets":1}, ...],
+             "body":null,"crit":null},
  "allies":  [ ... ],
  "enemies": [{"id":"e3","name":"Wraith","hp":11,"maxHp":11,"strength":2,"magic":3,"speed":7,
-              "guard":0,"intent":"drain cleric","moves":[ ... ]}, ...]}
+              "guard":0,"intent":"drain cleric","moves":[ ... ],"body":null,"crit":null}, ...],
+ "rules":   []}
 ```
 
 Lists are fastest first. `intent` is the command that unit will send.
 `target` is who a move may hit (`enemy`, `ally`, `self`), `targets` how many
 ids it takes at most (0 for `self`). `guard` is damage absorbed before hp.
+
+## Bodies, crits and rules
+
+Some kinds of unit carry a data structure, their `body`, and a `crit`
+question about it; every unit of that kind asks the same question. Units
+without one have `"body": null, "crit": null`.
+
+```json
+"body": {"kind": "linked_list", "head": "n2",
+         "nodes": {"n1": {"value": 7, "next": null},
+                   "n2": {"value": 4, "next": "n3"},
+                   "n3": {"value": 9, "next": "n1"}}},
+"crit": {"id": "middle", "description": "The value of the middle node, ..."}
+```
+
+| `kind` | fields |
+|---|---|
+| `array` | `values`: distinct whole numbers |
+| `linked_list` | `head` (a node id), `nodes`: id → `{value, next}`, `next` null at the tail; table order is not list order |
+
+| crit `id` | answer |
+|---|---|
+| `middle` | the middle node's value; with an even length, the second of the two middles |
+| `min_index` | the index of the smallest value, from 0 |
+
+`rules` lists the level's own questions: `{"id", "description", "answer"}`,
+where `answer` is false for a rule judged from the move alone (such as "hit the
+enemy with the least hp").
+
+**Answers** go after the command, each in a section after a `|`: its label,
+then the answer, read as JSON, else as plain text. The label is `crit` for the
+target's crit, or a rule's `id`:
+
+```
+attack e1 | crit 4
+attack e1 | crit 4 | median 5.5
+attack e1 | crit [1, 3, 4]
+```
+
+A right crit answer on a move aimed at an enemy runs the move's crit (for
+`attack`, 50% more of your strength), and the target's body is generated anew.
+A rule can bounce the move when its answer is wrong, or add to it when right;
+its `description` says which. A wrong, missing or unreadable answer only misses
+its reward: it is never an error.
 
 ## Endpoints
 

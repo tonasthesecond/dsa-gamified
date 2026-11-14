@@ -25,6 +25,10 @@ public interface Strategy {
      * the key, instead of returning null. Use {@code containsKey} to check for
      * a key that may be missing.
      *
+     * <p>Answers to the game's questions ride after the command, each after a
+     * {@code |}: {@code "attack e1 | crit 7"}. The game judges them; a wrong
+     * one only misses its reward.
+     *
      * @param state the battle as the game describes it to you
      * @return a command: the move's id, then the id of each target, separated
      *     by spaces, such as {@code "attack e1"}, {@code "cleave e1 e2"} or

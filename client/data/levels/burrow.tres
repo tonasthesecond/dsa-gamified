@@ -1,0 +1,61 @@
+[gd_resource type="Resource" script_class="Level" format=3]
+
+[ext_resource type="Script" path="res://resources/level.gd" id="1_level"]
+[ext_resource type="Script" path="res://resources/move.gd" id="2_move"]
+[ext_resource type="Resource" path="res://data/moves/pass.tres" id="3_pass"]
+[ext_resource type="Resource" path="res://data/moves/block.tres" id="4_block"]
+[ext_resource type="Script" path="res://resources/level_side.gd" id="5_side"]
+[ext_resource type="Script" path="res://resources/controllers/student_controller.gd" id="6_student"]
+[ext_resource type="Script" path="res://resources/level_unit.gd" id="7_slot"]
+[ext_resource type="Script" path="res://resources/controllers/telegraph_controller.gd" id="9_ai"]
+[ext_resource type="Resource" path="res://data/units/cleric.tres" id="u_cleric"]
+[ext_resource type="Resource" path="res://data/units/knight.tres" id="u_knight"]
+[ext_resource type="Resource" path="res://data/units/worm.tres" id="u_worm"]
+
+[sub_resource type="Resource" id="Student"]
+script = ExtResource("6_student")
+
+[sub_resource type="Resource" id="AI"]
+script = ExtResource("9_ai")
+
+[sub_resource type="Resource" id="H0"]
+script = ExtResource("7_slot")
+id = "knight"
+unit = ExtResource("u_knight")
+
+[sub_resource type="Resource" id="H1"]
+script = ExtResource("7_slot")
+id = "cleric"
+unit = ExtResource("u_cleric")
+
+[sub_resource type="Resource" id="E0"]
+script = ExtResource("7_slot")
+id = "e1"
+unit = ExtResource("u_worm")
+
+[sub_resource type="Resource" id="E1"]
+script = ExtResource("7_slot")
+id = "e2"
+unit = ExtResource("u_worm")
+
+[sub_resource type="Resource" id="HeroSide"]
+script = ExtResource("5_side")
+team = "hero"
+controller = SubResource("Student")
+units = Array[ExtResource("7_slot")]([SubResource("H0"), SubResource("H1")])
+
+[sub_resource type="Resource" id="EnemySide"]
+script = ExtResource("5_side")
+team = "enemy"
+controller = SubResource("AI")
+units = Array[ExtResource("7_slot")]([SubResource("E0"), SubResource("E1")])
+
+[resource]
+resource_name = "Worm Burrow: answer the middle value of each worm to crit it."
+script = ExtResource("1_level")
+title = "2. Worm Burrow"
+briefing = "Worms are tough, and plain attacks only chip at them. Each worm's \"body\" is a linked list: {\"head\": \"n2\", \"nodes\": {\"n2\": {\"value\": 4, \"next\": \"n5\"}, ...}}. The table is not in list order, so follow next from head. Send the middle value after the command, \"attack e1 | crit 4\", for 50% more damage. A crit grows the worm a new body."
+rng_seed = 102
+max_turns = 50
+shared_moves = Array[ExtResource("2_move")]([ExtResource("3_pass"), ExtResource("4_block")])
+sides = Array[ExtResource("5_side")]([SubResource("HeroSide"), SubResource("EnemySide")])
