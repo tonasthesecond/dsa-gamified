@@ -1,0 +1,83 @@
+# Architecture sketch: client-server, with the game split into layers
+vars: {d2-config: {theme-id: 0; layout-engine: elk; pad: 40}}
+# Shared palette: slate ink, one tint per group (blue = student/UI, amber = engine/server, green = authoring/data)
+classes: {
+  actor: {shape: person; width: 80; height: 100; style: {fill: "#334155"; stroke: "#334155"; font-color: "#1e293b"}}
+  boundary: {style: {fill: "#f8fafc"; stroke: "#334155"; stroke-width: 2; border-radius: 14; font-size: 28; bold: true; font-color: "#0f172a"}}
+  blue: {style: {fill: "#eff6ff"; stroke: "#3b82f6"; stroke-dash: 3; font-color: "#1d4ed8"; font-size: 18; border-radius: 10}}
+  amber: {style: {fill: "#fff7ed"; stroke: "#f97316"; stroke-dash: 3; font-color: "#c2410c"; font-size: 18; border-radius: 10}}
+  green: {style: {fill: "#f0fdf4"; stroke: "#22c55e"; stroke-dash: 3; font-color: "#15803d"; font-size: 18; border-radius: 10}}
+  uc-blue: {shape: oval; width: 230; height: 70; style: {fill: "#ffffff"; stroke: "#3b82f6"; font-color: "#0f172a"}}
+  uc-amber: {shape: oval; width: 230; height: 70; style: {fill: "#ffffff"; stroke: "#f97316"; font-color: "#0f172a"}}
+  uc-green: {shape: oval; width: 230; height: 70; style: {fill: "#ffffff"; stroke: "#22c55e"; font-color: "#0f172a"}}
+  box-blue: {style: {fill: "#ffffff"; stroke: "#3b82f6"; border-radius: 6; font-color: "#0f172a"}}
+  box-amber: {style: {fill: "#ffffff"; stroke: "#f97316"; border-radius: 6; font-color: "#0f172a"}}
+  box-green: {style: {fill: "#ffffff"; stroke: "#22c55e"; border-radius: 6; font-color: "#0f172a"}}
+  rel: {style: {stroke: "#64748b"; stroke-dash: 4; font-size: 13; italic: true; font-color: "#475569"}}
+  link: {style: {stroke: "#475569"; font-color: "#475569"}}
+}
+direction: right
+
+student: Student {class: actor}
+
+client: The game (runs in the web browser) — owns every rule {
+  class: boundary
+  direction: down
+
+  ui: Screens {
+    class: blue
+    direction: right
+    editor: Code editor\nand Submit button {class: box-blue}
+    stage: Battle view\n(animation) {class: box-blue}
+    map: World map\nand level info {class: box-blue}
+  }
+  app: Coordination {
+    class: blue
+    direction: right
+    runner: Battle coordinator\nsubmit → battle → replay {class: box-blue}
+    settings: Settings\n(server address) {class: box-blue}
+  }
+  logic: Game logic {
+    class: amber
+    direction: right
+    battle: Battle rules\nturns, damage, win/loss {class: box-amber}
+    replay: Replay\nbattle record → animation {class: box-amber}
+    caller: Server link\nasks for each move {class: box-amber}
+  }
+  data: Game content {
+    class: green
+    direction: right
+    content: Characters, moves,\nlevels, questions {class: box-green}
+    ai: Enemy behaviour {class: box-green}
+  }
+
+  ui -> app: uses {class: link}
+  app -> logic: uses {class: link}
+  logic -> data: reads {class: link}
+}
+
+server: Code server — knows nothing about the game {
+  class: boundary
+  direction: down
+
+  service: Service {
+    class: amber
+    direction: down
+    api: Web interface\nsubmit / start / next move / stop {class: box-amber}
+    compiler: Compiler\nchecks Java, makes it runnable {class: box-amber}
+    runner: Program runner\none per battle {class: box-amber}
+    api -> compiler {class: link}
+    api -> runner {class: link}
+  }
+  sandbox: Sandbox {
+    class: green
+    program: Student's program {class: box-green}
+  }
+  service.runner -> sandbox.program: "time limit,\noutput limit" {class: link}
+}
+
+student -> client.ui: plays, writes code {class: link}
+client.logic.caller -> server.service.api: "internet (HTTP)\nbattle state → move" {
+  class: link
+  style: {stroke-width: 3; stroke: "#0f172a"; font-color: "#0f172a"; bold: true}
+}

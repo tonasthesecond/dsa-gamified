@@ -1,0 +1,62 @@
+# Use case diagram: what a student can do with the game
+vars: {d2-config: {theme-id: 0; layout-engine: elk; pad: 40}}
+# Shared palette: slate ink, one tint per group (blue = student/UI, amber = engine/server, green = authoring/data)
+classes: {
+  actor: {shape: person; width: 80; height: 100; style: {fill: "#334155"; stroke: "#334155"; font-color: "#1e293b"}}
+  boundary: {style: {fill: "#f8fafc"; stroke: "#334155"; stroke-width: 2; border-radius: 14; font-size: 28; bold: true; font-color: "#0f172a"}}
+  blue: {style: {fill: "#eff6ff"; stroke: "#3b82f6"; stroke-dash: 3; font-color: "#1d4ed8"; font-size: 18; border-radius: 10}}
+  amber: {style: {fill: "#fff7ed"; stroke: "#f97316"; stroke-dash: 3; font-color: "#c2410c"; font-size: 18; border-radius: 10}}
+  green: {style: {fill: "#f0fdf4"; stroke: "#22c55e"; stroke-dash: 3; font-color: "#15803d"; font-size: 18; border-radius: 10}}
+  uc-blue: {shape: oval; width: 230; height: 70; style: {fill: "#ffffff"; stroke: "#3b82f6"; font-color: "#0f172a"}}
+  uc-amber: {shape: oval; width: 230; height: 70; style: {fill: "#ffffff"; stroke: "#f97316"; font-color: "#0f172a"}}
+  uc-green: {shape: oval; width: 230; height: 70; style: {fill: "#ffffff"; stroke: "#22c55e"; font-color: "#0f172a"}}
+  box-blue: {style: {fill: "#ffffff"; stroke: "#3b82f6"; border-radius: 6; font-color: "#0f172a"}}
+  box-amber: {style: {fill: "#ffffff"; stroke: "#f97316"; border-radius: 6; font-color: "#0f172a"}}
+  box-green: {style: {fill: "#ffffff"; stroke: "#22c55e"; border-radius: 6; font-color: "#0f172a"}}
+  rel: {style: {stroke: "#64748b"; stroke-dash: 4; font-size: 13; italic: true; font-color: "#475569"}}
+  link: {style: {stroke: "#475569"; font-color: "#475569"}}
+}
+direction: right
+
+student: Student {class: actor}
+
+system: DSA RPG (the game) {
+  class: boundary
+
+  play: What the student does {
+    class: blue
+    direction: down
+    explore: Choose a level\nfrom the world map {class: uc-blue}
+    briefing: Read the level's goal\nand the enemies' plans {class: uc-blue}
+    inspect: Look at a character's\ndetails {class: uc-blue}
+    write: Write code that picks\neach character's move {class: uc-blue}
+    submit: Submit the code {class: uc-blue}
+    error: See mistakes\nin the code {class: uc-blue}
+    replay: Watch the battle\nplay out {class: uc-blue}
+  }
+
+  run: What the game does behind the scenes {
+    class: amber
+    direction: down
+    compile: Check and prepare\nthe student's code {class: uc-amber}
+    battle: Play out the battle\nturn by turn {class: uc-amber}
+    decide: Ask the student's code\nfor the next move {class: uc-amber}
+    answer: Grade the answer to a\ndata-structure question {class: uc-amber}
+  }
+
+  play.briefing -> play.explore: <<extend>> {class: rel}
+  play.error -> play.submit: <<extend>> {class: rel}
+  play.submit -> play.replay: <<include>> {class: rel}
+  play.submit -> run.compile: <<include>> {class: rel}
+  play.submit -> run.battle: <<include>> {class: rel}
+  run.battle -> run.decide: <<include>> {class: rel}
+  run.answer -> run.decide: <<extend>> {class: rel}
+}
+
+student -- system.play.explore {class: link}
+student -- system.play.briefing {class: link}
+student -- system.play.inspect {class: link}
+student -- system.play.write {class: link}
+student -- system.play.submit {class: link}
+student -- system.play.error {class: link}
+student -- system.play.replay {class: link}

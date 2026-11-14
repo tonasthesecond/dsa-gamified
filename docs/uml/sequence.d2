@@ -1,0 +1,57 @@
+# Sequence diagram: a student submits code and watches one battle
+vars: {d2-config: {theme-id: 0; layout-engine: elk; pad: 40}}
+# Shared palette: slate ink, one tint per group (blue = student/UI, amber = engine/server, green = authoring/data)
+classes: {
+  actor: {shape: person; width: 80; height: 100; style: {fill: "#334155"; stroke: "#334155"; font-color: "#1e293b"}}
+  boundary: {style: {fill: "#f8fafc"; stroke: "#334155"; stroke-width: 2; border-radius: 14; font-size: 28; bold: true; font-color: "#0f172a"}}
+  blue: {style: {fill: "#eff6ff"; stroke: "#3b82f6"; stroke-dash: 3; font-color: "#1d4ed8"; font-size: 18; border-radius: 10}}
+  amber: {style: {fill: "#fff7ed"; stroke: "#f97316"; stroke-dash: 3; font-color: "#c2410c"; font-size: 18; border-radius: 10}}
+  green: {style: {fill: "#f0fdf4"; stroke: "#22c55e"; stroke-dash: 3; font-color: "#15803d"; font-size: 18; border-radius: 10}}
+  uc-blue: {shape: oval; width: 230; height: 70; style: {fill: "#ffffff"; stroke: "#3b82f6"; font-color: "#0f172a"}}
+  uc-amber: {shape: oval; width: 230; height: 70; style: {fill: "#ffffff"; stroke: "#f97316"; font-color: "#0f172a"}}
+  uc-green: {shape: oval; width: 230; height: 70; style: {fill: "#ffffff"; stroke: "#22c55e"; font-color: "#0f172a"}}
+  box-blue: {style: {fill: "#ffffff"; stroke: "#3b82f6"; border-radius: 6; font-color: "#0f172a"}}
+  box-amber: {style: {fill: "#ffffff"; stroke: "#f97316"; border-radius: 6; font-color: "#0f172a"}}
+  box-green: {style: {fill: "#ffffff"; stroke: "#22c55e"; border-radius: 6; font-color: "#0f172a"}}
+  rel: {style: {stroke: "#64748b"; stroke-dash: 4; font-size: 13; italic: true; font-color: "#475569"}}
+  link: {style: {stroke: "#475569"; font-color: "#475569"}}
+}
+shape: sequence_diagram
+
+student: Student {class: actor}
+screen: Game screen {class: box-blue}
+rules: Battle rules\n(inside the game) {class: box-amber}
+server: Code server {class: box-amber}
+program: Student's program\n(locked-down sandbox) {class: box-green}
+
+student -> screen: "writes code, presses Submit" {class: link}
+screen -> server: "send the code" {class: link}
+server -> server: "check it and turn it\ninto a runnable program" {class: link}
+
+bad: "alt [the code has a mistake]" {
+  server -> screen: "the mistake and its line number" {class: rel}
+  screen -> student: "shows the mistake" {class: rel}
+}
+
+server -> program: "start the program" {class: link}
+server -> screen: "ready" {class: rel}
+screen -> rules: "start the battle" {class: link}
+
+turns: "loop [each turn, each character, fastest first]" {
+  mine: "alt [the student's character]" {
+    rules -> server: "the battle so far" {class: link}
+    server -> program: "what's your move?" {class: link}
+    program -> server: "e.g. \"attack enemy 1\"\n+ any puzzle answer" {class: rel}
+    server -> rules: "the move" {class: rel}
+    rules -> rules: "is the move allowed?\nis the answer right?" {class: link}
+  }
+  enemy: "else [an enemy]" {
+    rules -> rules: "enemy makes the move\nit announced" {class: link}
+  }
+  rules -> rules: "apply damage, healing, shields;\nwrite it in the battle record" {class: link}
+}
+
+rules -> screen: "battle record: who won, what happened" {class: rel}
+screen -> server: "done" {class: link}
+server -> program: "stop the program" {class: link}
+screen -> student: "animated replay of the battle" {class: rel}
